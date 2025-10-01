@@ -2,3 +2,5 @@
 gcp_credentials.json 
 my_framework/.env 
 my_framework/gcp_credentials.json 
+**/.env 
+**/gcp_credentials.json 

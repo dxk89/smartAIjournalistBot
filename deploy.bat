@@ -15,6 +15,38 @@ if not exist ".git" (
     exit /b
 )
 
+:: Create or update .gitignore to exclude sensitive files
+echo Checking .gitignore for sensitive files...
+if not exist ".gitignore" (
+    echo Creating .gitignore...
+    (
+        echo # Credentials and sensitive files
+        echo .env
+        echo *.env
+        echo gcp_credentials.json
+        echo **/gcp_credentials.json
+        echo **/.env
+        echo.
+        echo # API Keys
+        echo **/api_keys.json
+        echo credentials.json
+        echo.
+        echo # Python
+        echo __pycache__/
+        echo *.pyc
+        echo *.pyo
+        echo venv/
+        echo env/
+    ) > .gitignore
+    echo .gitignore created!
+) else (
+    findstr /C:".env" .gitignore >nul || echo .env >> .gitignore
+    findstr /C:"gcp_credentials.json" .gitignore >nul || echo gcp_credentials.json >> .gitignore
+    findstr /C:"**/.env" .gitignore >nul || echo **/.env >> .gitignore
+    findstr /C:"**/gcp_credentials.json" .gitignore >nul || echo **/gcp_credentials.json >> .gitignore
+)
+echo.
+
 echo ===============================================
 echo  UPLOADING CHANGES TO GITHUB
 echo ===============================================
@@ -24,6 +56,7 @@ echo.
 if exist "my_framework\.git" (
     echo Fixing nested Git repository issue...
     rd /s /q "my_framework\.git"
+    git rm --cached -r my_framework 2>nul
     echo Fixed!
     echo.
 )

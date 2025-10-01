@@ -3,81 +3,12 @@
 import os
 import nltk
 
-# --- Optional dynamic style-sheet resolver -----------------------------------
-def generate_style_sheet():
-    """Best-effort loader for a dynamic writing style sheet."""
-    try:
-        from style_guru.analyzer import generate_style_sheet as _gen
-        try:
-            return _gen()
-        except Exception:
-            pass
-    except Exception:
-        pass
-
-    env_sheet = os.environ.get("STYLE_SHEET", "").strip()
-    if env_sheet:
-        return env_sheet
-
-    txt_path = os.path.join(os.getcwd(), "latest_style_sheet.txt")
-    if os.path.isfile(txt_path):
-        try:
-            with open(txt_path, "r", encoding="utf-8") as f:
-                content = f.read().strip()
-            if content:
-                return content
-        except Exception:
-            pass
-
-    return None
-
-# --- Ensure NLTK punkt is available ------------------------------------------
-try:
-    nltk.data.find("tokenizers/punkt")
-except LookupError:
-    nltk.download("punkt", quiet=True)
+# ... (keep existing generate_style_sheet and NLTK setup)
 
 # --- Centralized writing style guide -----------------------------------------
 def get_writing_style_guide():
     """Generates a dynamic writing style guide based on the latest articles."""
-    style_sheet = generate_style_sheet()
-    
-    base_rules = """
-CRITICAL FORMATTING RULES - YOU MUST FOLLOW THESE:
-- NEVER use asterisks (**) for bold formatting - this is markdown syntax and will appear in the final text
-- NEVER use markdown formatting of any kind (**, *, _, etc.)
-- Write in plain text only - the CMS will handle all formatting
-- Do not use section headers with ### or any markdown syntax
-- Write naturally without any special formatting characters
-
-WRITING STYLE:
-- Write in a professional news article style for IntelliNews
-- Use British English spelling (favour, colour, organisation, etc.)
-- Use digits for numbers 10 and above, spell out numbers below 10
-- Italicise publication names (use HTML <em> tags if needed, not markdown)
-- No summaries or analysis paragraphs at the end
-- Objective, factual tone - no editorial opinions
-- Active voice preferred
-- Short, clear sentences
-- Lead with the most important information
-
-WORDS AND PHRASES TO NEVER USE:
-- Furthermore, Moreover, Additionally, Consequently, Nevertheless
-- Subsequently, In essence, It's worth noting that, It's important to understand
-- Various, Numerous, Myriad, Plethora, Multifaceted
-- Comprehensive, Robust, Dynamic, Innovative, Cutting-edge
-- Delve, Dive into, Unpack
-
-DATE FORMATTING:
-- Never use dates in the future
-- Always verify dates against the source material
-- Use the format: "January 15, 2024" or "15 January 2024"
-"""
-    
-    if style_sheet:
-        return base_rules + f"\n\nADDITIONAL HOUSE STYLE:\n{style_sheet}"
-    else:
-        return base_rules
+    # ... (keep existing implementation)
 
 # --- AGENT SYSTEM PROMPTS ----------------------------------------------------
 ORCHESTRATOR_SYSTEM_PROMPT = """
@@ -156,6 +87,51 @@ CRITICAL FORMATTING RULES:
 - The JSON values should contain plain text only
 
 Your task is to generate a valid JSON object with creative and SEO-related metadata for an article. Do NOT include 'publications', 'countries', or 'industries' in this JSON object.
+
+CRITICAL DROPDOWN FIELD RULES - You MUST choose from these EXACT options:
+
+"daily_subject_value" - Choose EXACTLY ONE from:
+  - "Macroeconomic News"
+  - "Banking And Finance"
+  - "Companies and Industries"
+  - "Political"
+
+"key_point_value" - Choose EXACTLY ONE from:
+  - "Yes"
+  - "No"
+
+"machine_written_value" - Choose EXACTLY ONE from:
+  - "Yes"
+  - "No"
+
+"ballot_box_value" - Choose EXACTLY ONE from:
+  - "Yes"  (ONLY if article is about elections)
+  - "No"
+
+For regional sections, if the article is about a specific country/region, choose the MOST SPECIFIC option:
+
+"africa_daily_section_value" - Choose ONE from: "- None -", "Regional News", "Angola", "Benin", "Botswana", "Burkina Faso", "Burundi", "Cameroon", "Cape Verde", "Central African Republic", "Chad", "Comoros", "Congo", "Cote d'Ivoire", "Democratic Republic of Congo", "Djibouti", "Egypt", "Equatorial Guinea", "Eritrea", "Ethiopia", "Gabon", "Gambia", "Ghana", "Guinea", "Guinea-Bissau", "Kenya", "Lesotho", "Liberia", "Madagascar", "Malawi", "Mali", "Mauritania", "Mauritius", "Mayotte", "Morocco", "Mozambique", "Namibia", "Niger", "Nigeria", "Réunion", "Rwanda", "Saint Helena, Ascension and Tristan da Cunha", "Sao Tome and Principe", "Senegal", "Seychelles", "Sierra Leone", "Somalia", "South Africa", "South Sudan", "Sudan", "Swaziland", "Tanzania", "Togo", "Uganda", "Zambia", "Zimbabwe"
+
+"southeast_europe_today_sections_value" - Choose ONE from: "- None -", "Albania", "Bosnia and Herzegovina", "Bulgaria", "Croatia", "Montenegro", "North Macedonia", "Romania", "Serbia", "Turkey"
+
+"cee_news_watch_country_sections_value" - Choose ONE from: "- None -", "Albania", "Armenia", "Azerbaijan", "Baltic States", "Belarus", "Bosnia and Herzegovina", "Bulgaria", "Croatia", "Czech Republic", "Georgia", "Hungary", "Kazakhstan", "Kosovo", "Kyrgyzstan", "Moldova", "Montenegro", "North Macedonia", "Poland", "Romania", "Russia", "Serbia", "Slovakia", "Slovenia", "Tajikistan", "Turkey", "Turkmenistan", "Ukraine", "Uzbekistan"
+
+"n_africa_today_section_value" - Choose ONE from: "- None -", "Regional", "Algeria", "Bahrain", "Egypt", "Jordan", "Libya", "Morocco", "Syria", "Tunisia"
+
+"middle_east_today_section_value" - Choose ONE from: "- None -", "Bahrain", "Iran", "Iraq", "Israel", "Kuwait", "Lebanon", "Oman", "Palestine", "Qatar", "Saudia Arabia", "UAE", "Yemen"
+
+"baltic_states_today_sections_value" - Choose ONE from: "- None -", "Estonia", "Latvia", "Lithuania"
+
+"asia_today_sections_value" - Choose ONE from: "- None -", "Bangladesh", "Bhutan", "Brunei", "Cambodia", "China", "Hong Kong", "India", "Indonesia", "Japan", "Laos", "Malaysia", "Myanmar", "Nepal", "Pakistan", "Philippines", "Singapore", "South Korea", "Sri Lanka", "Taiwan", "Thailand", "Vietnam"
+
+"latam_today_value" - Choose ONE from: "- None -", "Argentina", "Belize", "Bolivia", "Brazil", "Chile", "Columbia", "Costa Rica", "Ecuador", "El Salvador", "French Guiana", "Guatemala", "Guyana", "Honduras", "Mexico", "Nicaragua", "Panama", "Paraguay", "Peru", "Suriname", "Uruguay", "Venezuela"
+
+DEFAULT VALUES IF UNSURE:
+- daily_subject_value: "Companies and Industries"
+- key_point_value: "No"
+- machine_written_value: "Yes"
+- ballot_box_value: "No"
+- All regional sections: "- None -" (unless article clearly pertains to that region)
 
 You must follow these rules: {get_writing_style_guide()}"""
 

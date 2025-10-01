@@ -1,8 +1,12 @@
 # File: src/my_framework/agents/utils.py
 
 import re
+import time
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import Select
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException
 from ..models.base import BaseChatModel
 from ..core.schemas import HumanMessage
 from typing import List
@@ -831,6 +835,219 @@ INDUSTRY_MAP = {
     "Packaged Foods & Meats": "edit-field-industry-und-0-2769-2769-children-517-517-children-646-646",
 }
 
+# NEW: Dropdown option mappings using values instead of text
+DAILY_SUBJECT_MAP = {
+    "_none": "_none",
+    "Macroeconomic News": "1022",
+    "Banking And Finance": "1023",
+    "Companies and Industries": "1024",
+    "Political": "1025"
+}
+
+KEY_POINT_MAP = {
+    "Yes": "Yes",
+    "No": "No"
+}
+
+MACHINE_WRITTEN_MAP = {
+    "Yes": "Yes",
+    "No": "No"
+}
+
+BALLOT_BOX_MAP = {
+    "Yes": "Yes",
+    "No": "No"
+}
+
+AFRICA_DAILY_SECTION_MAP = {
+    "- None -": "_none",
+    "Regional News": "1056",
+    "Angola": "1057",
+    "Benin": "1058",
+    "Botswana": "1059",
+    "Burkina Faso": "1060",
+    "Burundi": "1061",
+    "Cameroon": "1062",
+    "Cape Verde": "1063",
+    "Central African Republic": "1064",
+    "Chad": "1065",
+    "Comoros": "1066",
+    "Congo": "1067",
+    "Cote d'Ivoire": "1069",
+    "Democratic Republic of Congo": "1068",
+    "Djibouti": "1070",
+    "Egypt": "3272",
+    "Equatorial Guinea": "1071",
+    "Eritrea": "1072",
+    "Ethiopia": "1073",
+    "Gabon": "1074",
+    "Gambia": "1075",
+    "Ghana": "1076",
+    "Guinea": "1077",
+    "Guinea-Bissau": "1078",
+    "Kenya": "1079",
+    "Lesotho": "1080",
+    "Liberia": "1081",
+    "Madagascar": "1082",
+    "Malawi": "1083",
+    "Mali": "1084",
+    "Mauritania": "1085",
+    "Mauritius": "1086",
+    "Mayotte": "1087",
+    "Morocco": "3343",
+    "Mozambique": "1088",
+    "Namibia": "1089",
+    "Niger": "1090",
+    "Nigeria": "1091",
+    "Réunion": "1092",
+    "Rwanda": "1093",
+    "Saint Helena, Ascension and Tristan da Cunha": "1094",
+    "Sao Tome and Principe": "1095",
+    "Senegal": "1096",
+    "Seychelles": "1097",
+    "Sierra Leone": "1098",
+    "Somalia": "1099",
+    "South Africa": "1100",
+    "South Sudan": "2403",
+    "Sudan": "2402",
+    "Swaziland": "1101",
+    "Tanzania": "1102",
+    "Togo": "1103",
+    "Uganda": "1104",
+    "Zambia": "1105",
+    "Zimbabwe": "1106"
+}
+
+SOUTHEAST_EUROPE_SECTIONS_MAP = {
+    "- None -": "_none",
+    "Albania": "1107",
+    "Bosnia and Herzegovina": "1108",
+    "Bulgaria": "1109",
+    "Croatia": "1110",
+    "Montenegro": "1112",
+    "North Macedonia": "1111",
+    "Romania": "1113",
+    "Serbia": "1114",
+    "Turkey": "1115"
+}
+
+CEE_NEWS_WATCH_MAP = {
+    "- None -": "_none",
+    "Albania": "1116",
+    "Armenia": "3215",
+    "Azerbaijan": "1133",
+    "Baltic States": "1324",
+    "Belarus": "1331",
+    "Bosnia and Herzegovina": "1117",
+    "Bulgaria": "1118",
+    "Croatia": "1119",
+    "Czech Republic": "1120",
+    "Georgia": "3216",
+    "Hungary": "1121",
+    "Kazakhstan": "1122",
+    "Kosovo": "1320",
+    "Kyrgyzstan": "1132",
+    "Moldova": "1333",
+    "Montenegro": "1124",
+    "North Macedonia": "1123",
+    "Poland": "1125",
+    "Romania": "1126",
+    "Russia": "1127",
+    "Serbia": "1128",
+    "Slovakia": "1129",
+    "Slovenia": "1332",
+    "Tajikistan": "1135",
+    "Turkey": "1130",
+    "Turkmenistan": "1136",
+    "Ukraine": "1131",
+    "Uzbekistan": "1134"
+}
+
+N_AFRICA_TODAY_MAP = {
+    "- None -": "_none",
+    "Regional": "1160",
+    "Algeria": "1161",
+    "Bahrain": "1162",
+    "Egypt": "3299",
+    "Jordan": "1164",
+    "Libya": "1315",
+    "Morocco": "1167",
+    "Syria": "1318",
+    "Tunisia": "1170"
+}
+
+MIDDLE_EAST_TODAY_MAP = {
+    "- None -": "_none",
+    "Bahrain": "3146",
+    "Iran": "3148",
+    "Iraq": "3149",
+    "Israel": "3150",
+    "Kuwait": "3151",
+    "Lebanon": "3152",
+    "Oman": "3153",
+    "Palestine": "3154",
+    "Qatar": "3155",
+    "Saudia Arabia": "3156",
+    "UAE": "3157",
+    "Yemen": "3158"
+}
+
+BALTIC_STATES_TODAY_MAP = {
+    "- None -": "_none",
+    "Estonia": "1219",
+    "Latvia": "1172",
+    "Lithuania": "1174"
+}
+
+ASIA_TODAY_SECTIONS_MAP = {
+    "- None -": "_none",
+    "Bangladesh": "3283",
+    "Bhutan": "3291",
+    "Brunei": "3289",
+    "Cambodia": "3287",
+    "China": "1175",
+    "Hong Kong": "1176",
+    "India": "1177",
+    "Indonesia": "1178",
+    "Japan": "3396",
+    "Laos": "3288",
+    "Malaysia": "1179",
+    "Myanmar": "3286",
+    "Nepal": "3290",
+    "Pakistan": "3284",
+    "Philippines": "1180",
+    "Singapore": "1181",
+    "South Korea": "1182",
+    "Sri Lanka": "3285",
+    "Taiwan": "1183",
+    "Thailand": "1184",
+    "Vietnam": "1185"
+}
+
+LATAM_TODAY_MAP = {
+    "- None -": "_none",
+    "Argentina": "3129",
+    "Belize": "3130",
+    "Bolivia": "3131",
+    "Brazil": "3132",
+    "Chile": "3133",
+    "Columbia": "3134",
+    "Costa Rica": "3135",
+    "Ecuador": "3136",
+    "El Salvador": "3137",
+    "French Guiana": "3207",
+    "Guatemala": "3138",
+    "Guyana": "3205",
+    "Honduras": "3139",
+    "Mexico": "3208",
+    "Nicaragua": "3140",
+    "Panama": "3141",
+    "Paraguay": "3142",
+    "Peru": "3143",
+    "Suriname": "3206",
+    "Uruguay": "3144",
+    "Venezuela": "3145"
+}
 
 # --- HELPER FUNCTIONS ---
 
@@ -892,9 +1109,7 @@ def tick_checkboxes_by_id(driver, id_list, log_func):
     log_func(f"   - Ticking {len(id_list)} checkboxes by ID...")
     for checkbox_id in id_list:
         try:
-            # Find the checkbox element
             checkbox = driver.find_element(By.ID, checkbox_id)
-            # Use JavaScript to click the element
             driver.execute_script("arguments[0].click();", checkbox)
             log_func(f"       - ✅ Ticked '{checkbox_id}'")
         except Exception:
@@ -937,12 +1152,87 @@ def get_publication_ids_from_llm(llm: BaseChatModel, article_title: str, article
     
     return publication_ids
 
-def select_dropdown_option(driver, element_id, value, log_func, field_name):
+def select_dropdown_by_value(driver, element_id, text_value, mapping_dict, log_func, field_name, required=False, wait_timeout=10):
+    """
+    Selects a dropdown option by its VALUE attribute using JavaScript injection.
+    This bypasses visibility requirements and is more reliable.
+    
+    Args:
+        driver: Selenium WebDriver
+        element_id: ID of the select element
+        text_value: The human-readable text (e.g., "Macroeconomic News")
+        mapping_dict: Dictionary mapping text to values (e.g., DAILY_SUBJECT_MAP)
+        log_func: Logging function
+        field_name: Name of field for logging
+        required: If True, will not skip empty values and will log error
+        wait_timeout: Seconds to wait for element
+    """
+    from selenium.webdriver.support.ui import WebDriverWait
+    from selenium.webdriver.support import expected_conditions as EC
+    from selenium.common.exceptions import TimeoutException
+    
     try:
-        if value and value.lower().strip() != "- none -":
-            select_element = driver.find_element(By.ID, element_id)
-            select_obj = Select(select_element)
-            select_obj.select_by_visible_text(value)
-            log_func(f"   - Selected {field_name}: '{value}'")
+        # If no value provided and field is required, this is an error
+        if (not text_value or text_value.strip() in ["", "- None -", "_none"]):
+            if required:
+                log_func(f"   - ⚠️ REQUIRED {field_name} has no value! This will cause CMS error.")
+                return False
+            else:
+                log_func(f"   - Skipping {field_name} (no value)")
+                return True
+        
+        # Get the option value from the mapping
+        option_value = mapping_dict.get(text_value)
+        
+        if not option_value:
+            log_func(f"   - ⚠️ Unknown {field_name} value: '{text_value}'")
+            if required:
+                log_func(f"   - ⚠️ REQUIRED field has invalid value! This will cause CMS error.")
+                return False
+            return False
+        
+        # Wait for the element to be present (but doesn't need to be visible)
+        wait = WebDriverWait(driver, wait_timeout)
+        try:
+            wait.until(
+                EC.presence_of_element_located((By.ID, element_id))
+            )
+        except TimeoutException:
+            log_func(f"   - 🔥 Timeout waiting for {field_name} element (ID: {element_id})")
+            if required:
+                log_func(f"   - 🔥 CRITICAL: REQUIRED field element not found!")
+            return False
+        
+        # Use JavaScript to set the value directly - this works even if hidden
+        js_script = f"""
+        var select = document.getElementById('{element_id}');
+        if (select) {{
+            select.value = '{option_value}';
+            // Trigger change event so any listeners are notified
+            var event = new Event('change', {{ bubbles: true }});
+            select.dispatchEvent(event);
+            return select.value;
+        }}
+        return null;
+        """
+        
+        result = driver.execute_script(js_script)
+        
+        if result == option_value:
+            log_func(f"   - ✅ Selected {field_name}: '{text_value}' (value={option_value})")
+            return True
+        elif result is None:
+            log_func(f"   - 🔥 Could not find element {field_name} in DOM (ID: {element_id})")
+            if required:
+                log_func(f"   - 🔥 CRITICAL: REQUIRED field element not found!")
+            return False
+        else:
+            log_func(f"   - ⚠️ Selection verification failed for {field_name}")
+            log_func(f"      Expected: {option_value}, Got: {result}")
+            return False
+        
     except Exception as e:
-        log_func(f"   - ⚠️ Could not select {field_name} ('{value}'): {e}")
+        log_func(f"   - 🔥 Could not select {field_name} ('{text_value}'): {e}")
+        if required:
+            log_func(f"   - 🔥 CRITICAL: REQUIRED field selection failed!")
+        return False

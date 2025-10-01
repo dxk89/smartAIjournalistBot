@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Journalist Bot v1.5</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #111827; color: #d1d5db; }
+        .container { max-width: 1200px; margin: auto; padding: 2rem; }
+        .form-input, .form-textarea, .form-select {
+            background-color: #374151; border: 1px solid #4b5563; border-radius: 0.375rem;
+            padding: 0.5rem 0.75rem; width: 100%; color: #d1d5db;
+        }
+        .form-input:focus, .form-textarea:focus, .form-select:focus { outline: 2px solid #3b82f6; border-color: transparent; }
+        .btn {
+            background-color: #2563eb; color: white; font-weight: 600; padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem; border: none; cursor: pointer; transition: background-color 0.2s;
+        }
+        .btn:hover:not(:disabled) { background-color: #1d4ed8; }
+        .btn:disabled { background-color: #4b5563; cursor: not-allowed; }
+        .btn-secondary { background-color: #4b5563; }
+        .btn-secondary:hover { background-color: #374151; }
+        .label { display: block; margin-bottom: 0.25rem; font-weight: 500; color: #9ca3af; }
+        .tab { padding: 0.75rem 1.5rem; cursor: pointer; border-bottom: 2px solid transparent; }
+        .tab-active { color: #3b82f6; border-bottom-color: #3b82f6; }
+        .tab-content { display: none; }
+        .tab-content-active { display: block; }
+        #log-container {
+            background-color: #1f2937;
+            border: 1px solid #374151;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-top: 2rem;
+            height: 300px;
+            overflow-y: scroll;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.875rem;
+            color: #9ca3af;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-white">AI Journalist Bot</h1>
+            <p class="text-xl text-gray-400">Version 1.5</p>
+        </header>
+
+        <main>
+            <div id="main-content">
+                <div class="flex border-b border-gray-700 max-w-4xl mx-auto mb-6">
+                    <div id="tab-urls" class="tab tab-active" onclick="showTab('urls')">From URLs</div>
+                    <div id="tab-prewritten" class="tab" onclick="showTab('prewritten')">Pre-written</div>
+                    <div id="tab-sheets" class="tab" onclick="showTab('sheets')">From Google Sheet</div>
+                    <div id="tab-settings" class="tab" onclick="showTab('settings')">Settings</div>
+                </div>
+
+                <div id="content-urls" class="tab-content tab-content-active max-w-4xl mx-auto space-y-6">
+                </div>
+                <div id="content-prewritten" class="tab-content max-w-4xl mx-auto space-y-6">
+                </div>
+                <div id="content-sheets" class="tab-content max-w-4xl mx-auto space-y-6">
+                </div>
+                <div id="content-settings" class="tab-content max-w-4xl mx-auto space-y-6">
+                </div>
+
+                <div id="log-container" class="max-w-4xl mx-auto"></div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const ui = {
+            tabs: {},
+            tabContents: {}
+        };
+
+        function showTab(tabName) {
+            for (const name in ui.tabs) {
+                ui.tabs[name].classList.toggle('tab-active', name === tabName);
+                ui.tabContents[name].classList.toggle('tab-content-active', name === tabName);
+            }
+        }
+
+        function getSettings() {
+            return {
+                openai_api_key: document.getElementById('openai_api_key').value,
+                username: document.getElementById('username').value,
+                password: document.getElementById('password').value
+            };
+        }
+
+        function saveSettings() {
+            const settings = getSettings();
+            localStorage.setItem('aiJournalistSettings', JSON.stringify(settings));
+            alert('Settings saved!');
+        }
+
+        function loadSettings() {
+            const settings = JSON.parse(localStorage.getItem('aiJournalistSettings'));
+            if (settings) {
+                document.getElementById('openai_api_key').value = settings.openai_api_key || '';
+                document.getElementById('username').value = settings.username || '';
+                document.getElementById('password').value = settings.password || '';
+                alert('Settings loaded!');
+            } else {
+                alert('No saved settings found.');
+            }
+        }
+
+        async function runWorkflow(config) {
+            const button = event.target;
+            setBotRunning(true, button);
+            try {
+                const response = await fetch('/invoke', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ input: config })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.detail || 'An unknown error occurred.');
+            } catch (error) {
+                console.error(`Error running workflow: ${error.message}`);
+                alert(`Error: ${error.message}`);
+            } finally {
+                setBotRunning(false, button);
+            }
+        }
+
+        function submitSingleUrl(id) {
+            const url = document.getElementById(`source_url_${id}`).value;
+            if (!url) {
+                alert('Please enter a URL.');
+                return;
+            }
+            const config = {
+                ...getSettings(),
+                user_goal: `Write an article based on the content from the URL: ${url}`,
+                source_url: url
+            };
+            runWorkflow(config);
+        }
+
+        function submitAllUrls() {
+            const urlInputs = document.querySelectorAll('#content-urls input[type="text"]');
+            urlInputs.forEach(input => {
+                const url = input.value;
+                if (url) {
+                    const config = {
+                        ...getSettings(),
+                        user_goal: `Write an article based on the content from the URL: ${url}`,
+                        source_url: url
+                    };
+                    runWorkflow(config);
+                }
+            });
+        }
+
+        function submitSinglePrewritten(id) {
+            const text = document.getElementById(`article_text_${id}`).value;
+            if (!text) {
+                alert('Please paste the article text.');
+                return;
+            }
+            const config = {
+                ...getSettings(),
+                user_goal: 'Publish the following pre-written article.',
+                source_content: text
+            };
+            runWorkflow(config);
+        }
+
+        function submitFromSheet() {
+            const sheetUrl = document.getElementById('sheet_url').value;
+            const worksheetName = document.getElementById('worksheet_name').value;
+            if (!sheetUrl || !worksheetName) {
+                alert('Please enter a Google Sheet URL and worksheet name.');
+                return;
+            }
+            const config = {
+                ...getSettings(),
+                user_goal: 'Process articles from the Google Sheet.',
+                sheet_url: sheetUrl,
+                worksheet_name: worksheetName
+            };
+            runWorkflow(config);
+        }
+
+        function setBotRunning(isRunning, button) {
+            if (button) {
+                button.disabled = isRunning;
+                button.innerHTML = isRunning ? '<div class="animate-spin rounded-full h-5 w-5 border-b-2 border-white mx-auto"></div>' : 'Submit to CMS';
+            }
+        }
+
+        function createUrlInput(index) {
+            const id = index + 1;
+            return `
+                <div class="bg-gray-800 p-6 rounded-lg" data-id="${id}">
+                    <h3 class="text-xl font-semibold text-white mb-4">Article ${id}</h3>
+                    <div class="flex items-end space-x-4">
+                        <div class="flex-grow">
+                            <label for="source_url_${id}" class="label">Source URL</label>
+                            <input type="text" id="source_url_${id}" class="form-input">
+                        </div>
+                        <button class="btn h-10 w-40" onclick="submitSingleUrl(${id})">Submit to CMS</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function createPrewrittenInput(index) {
+            const id = index + 1;
+            return `
+                <div class="bg-gray-800 p-6 rounded-lg" data-id="${id}">
+                    <h3 class="text-xl font-semibold text-white mb-4">Article ${id}</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="article_text_${id}" class="label">Paste Full Article Text</label>
+                            <textarea id="article_text_${id}" class="form-textarea" rows="8"></textarea>
+                        </div>
+                        <button class="btn w-full" onclick="submitSinglePrewritten(${id})">Submit to CMS</button>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function initializeUI() {
+            ui.tabs.urls = document.getElementById('tab-urls');
+            ui.tabs.prewritten = document.getElementById('tab-prewritten');
+            ui.tabs.sheets = document.getElementById('tab-sheets');
+            ui.tabs.settings = document.getElementById('tab-settings');
+
+            ui.tabContents.urls = document.getElementById('content-urls');
+            ui.tabContents.prewritten = document.getElementById('content-prewritten');
+            ui.tabContents.sheets = document.getElementById('content-sheets');
+            ui.tabContents.settings = document.getElementById('content-settings');
+
+            // URLs Tab
+            let urlsHTML = '<button class="btn w-full mb-6" onclick="submitAllUrls()">Submit All URLs to CMS</button>';
+            for (let i = 0; i < 3; i++) {
+                urlsHTML += createUrlInput(i);
+            }
+            ui.tabContents.urls.innerHTML = urlsHTML;
+
+            // Pre-written Tab
+            let prewrittenHTML = '';
+            for (let i = 0; i < 3; i++) {
+                prewrittenHTML += createPrewrittenInput(i);
+            }
+            ui.tabContents.prewritten.innerHTML = prewrittenHTML;
+
+            // Google Sheets Tab
+            ui.tabContents.sheets.innerHTML = `
+                <div class="bg-gray-800 p-6 rounded-lg">
+                    <h3 class="text-xl font-semibold text-white mb-4">Google Sheet Import</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="sheet_url" class="label">Google Sheet URL</label>
+                            <input type="text" id="sheet_url" class="form-input">
+                        </div>
+                        <div>
+                            <label for="worksheet_name" class="label">Worksheet Name</label>
+                            <input type="text" id="worksheet_name" class="form-input" value="Sheet1">
+                        </div>
+                        <button class="btn w-full" onclick="submitFromSheet()">Submit from Sheet</button>
+                    </div>
+                </div>
+            `;
+
+            // Settings Tab
+            ui.tabContents.settings.innerHTML = `
+                <div class="bg-gray-800 p-6 rounded-lg">
+                    <h2 class="text-2xl font-semibold text-white mb-4">Configuration</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="openai_api_key" class="label">OpenAI API Key</label>
+                            <input type="password" id="openai_api_key" class="form-input">
+                        </div>
+                        <div>
+                            <label for="username" class="label">CMS Username</label>
+                            <input type="text" id="username" class="form-input">
+                        </div>
+                        <div>
+                            <label for="password" class="label">CMS Password</label>
+                            <input type="password" id="password" class="form-input">
+                        </div>
+                        <div class="flex space-x-4 pt-4">
+                            <button class="btn btn-secondary w-full" onclick="saveSettings()">Save Settings</button>
+                            <button class="btn btn-secondary w-full" onclick="loadSettings()">Load Settings</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            loadSettings(); // Load any saved settings on startup
+        }
+
+        document.addEventListener('DOMContentLoaded', initializeUI);
+    </script>
+</body>
+</html>

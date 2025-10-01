@@ -1,0 +1,17 @@
+# File: my-journalist-project/my_framework/render.yaml
+services:
+  - type: web
+    name: my-reasoning-engine
+    env: python
+    plan: free
+    buildCommand: |
+      bash render-build.sh
+      pip install -r requirements.txt
+    startCommand: |
+      echo "--- Starting Gunicorn Server ---"
+      cd my_framework && uvicorn app.server:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.4
+      - key: RENDER
+        value: "true"

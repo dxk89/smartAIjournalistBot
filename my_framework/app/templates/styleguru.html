@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Style Guru Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #111827; color: #d1d5db; }
+        .container { max-width: 1200px; margin: auto; padding: 2rem; }
+        .btn {
+            background-color: #2563eb; color: white; font-weight: 600; padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem; border: none; cursor: pointer; transition: background-color 0.2s;
+        }
+        .btn:hover:not(:disabled) { background-color: #1d4ed8; }
+        .btn:disabled { background-color: #4b5563; cursor: not-allowed; }
+        #log-container {
+            background-color: #1f2937;
+            border: 1px solid #374151;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            margin-top: 2rem;
+            height: 500px;
+            overflow-y: scroll;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.875rem;
+            color: #9ca3af;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-white">Style Guru Admin</h1>
+            <p class="text-xl text-gray-400">Manual & Automatic Style Model Management</p>
+        </header>
+
+        <main>
+            <div class="max-w-2xl mx-auto bg-gray-800 p-6 rounded-lg mb-6">
+                <h2 class="text-2xl font-semibold text-white mb-4">Scheduler Status</h2>
+                {% if status.is_scheduled %}
+                    <p class="text-green-400">✅ Automatic model update is running.</p>
+                    <p class="text-gray-400">Next scheduled update: {{ status.next_run }}</p>
+                {% else %}
+                    <p class="text-red-400">❌ Automatic model update is NOT running.</p>
+                {% endif %}
+                <p class="text-gray-500 mt-2 text-sm">The model is scheduled to update automatically every 12 hours. You can also trigger a manual update below.</p>
+            </div>
+
+            <div class="max-w-2xl mx-auto mt-8">
+                <button id="update-model-btn" class="btn w-full text-lg">
+                    <span id="update-model-btn-text">Update Style Model Manually</span>
+                    <div id="loader" class="hidden animate-spin rounded-full h-5 w-5 border-b-2 border-white ml-3"></div>
+                </button>
+            </div>
+
+            <div id="status-message" class="mt-6 text-center text-lg text-green-400 font-semibold"></div>
+
+            <div id="log-container"></div>
+        </main>
+    </div>
+
+    <script>
+        const ui = {};
+
+        function setUpdating(isUpdating) {
+            ui.updateBtn.disabled = isUpdating;
+            ui.updateBtnText.textContent = isUpdating ? 'Updating...' : 'Update Style Model Manually';
+            ui.loader.classList.toggle('hidden', !isUpdating);
+        }
+
+        async function updateModel() {
+            setUpdating(true);
+            ui.statusMessage.textContent = '🤖 Starting model update... This may take a few minutes.';
+
+            try {
+                const response = await fetch('/update-style-model', {
+                    method: 'POST',
+                });
+
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.detail || 'An unknown error occurred.');
+                }
+                ui.statusMessage.textContent = `🚀 ${data.output}`;
+            } catch (error) {
+                ui.statusMessage.textContent = `🔥 Error updating model: ${error.message}`;
+            } finally {
+                setUpdating(false);
+            }
+        }
+
+        function connectWebSocket() {
+            try {
+                const ws = new WebSocket(`ws://${window.location.host}/ws`);
+                ws.onmessage = (event) => {
+                    const logEntry = document.createElement('div');
+                    logEntry.textContent = event.data;
+                    ui.logContainer.appendChild(logEntry);
+                    ui.logContainer.scrollTop = ui.logContainer.scrollHeight;
+                };
+                ws.onerror = (error) => {
+                    console.error('WebSocket Error:', error);
+                };
+            } catch (error) {
+                console.error('Failed to connect to WebSocket:', error);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            ui.updateBtn = document.getElementById('update-model-btn');
+            ui.updateBtnText = document.getElementById('update-model-btn-text');
+            ui.loader = document.getElementById('loader');
+            ui.statusMessage = document.getElementById('status-message');
+            ui.logContainer = document.getElementById('log-container');
+
+            connectWebSocket();
+            ui.updateBtn.addEventListener('click', updateModel);
+        });
+    </script>
+</body>
+</html>

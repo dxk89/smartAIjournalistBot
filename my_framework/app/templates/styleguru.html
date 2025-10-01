@@ -14,7 +14,11 @@
             border-radius: 0.5rem; border: none; cursor: pointer; transition: background-color 0.2s;
         }
         .btn:hover:not(:disabled) { background-color: #1d4ed8; }
-        .btn:disabled { background-color: #4b5563; cursor: not-allowed; }
+        .btn:disabled { background-color: #4b5563; cursor: not-allowed; opacity: 0.6; }
+        .btn-secondary { background-color: #059669; }
+        .btn-secondary:hover:not(:disabled) { background-color: #047857; }
+        .btn-danger { background-color: #dc2626; }
+        .btn-danger:hover:not(:disabled) { background-color: #b91c1c; }
         #log-container {
             background-color: #1f2937;
             border: 1px solid #374151;
@@ -27,78 +31,128 @@
             font-size: 0.875rem;
             color: #9ca3af;
         }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-active { background-color: #10b981; }
+        .status-updating { background-color: #f59e0b; animation: pulse 2s infinite; }
+        .status-inactive { background-color: #ef4444; }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <header class="text-center mb-8">
             <h1 class="text-4xl font-bold text-white">Style Guru Admin</h1>
-            <p class="text-xl text-gray-400">Manual & Automatic Style Model Management</p>
+            <p class="text-xl text-gray-400">AI-Powered Article Style Management</p>
         </header>
 
         <main>
+            <!-- Status Card -->
             <div class="max-w-2xl mx-auto bg-gray-800 p-6 rounded-lg mb-6">
-                <h2 class="text-2xl font-semibold text-white mb-4">Scheduler Status</h2>
-                {% if status.is_scheduled %}
-                    <p class="text-green-400">✅ Automatic model update is running.</p>
-                    <p class="text-gray-400">Next scheduled update: {{ status.next_run }}</p>
+                <h2 class="text-2xl font-semibold text-white mb-4">System Status</h2>
+                
+                {% if framework_info.exists %}
+                    <div class="mb-4">
+                        <p class="text-lg">
+                            <span class="status-indicator {% if updating %}status-updating{% else %}status-active{% endif %}"></span>
+                            Status: <span class="{% if updating %}text-yellow-400{% else %}text-green-400{% endif %} font-semibold">
+                                {% if updating %}Updating...{% else %}Active{% endif %}
+                            </span>
+                        </p>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 gap-4 text-gray-300">
+                        <div>
+                            <p class="text-sm text-gray-400">Articles Analyzed</p>
+                            <p class="text-lg font-semibold">{{ framework_info.articles_analyzed }}</p>
+                        </div>
+                        <div>
+                            <p class="text-sm text-gray-400">Framework Version</p>
+                            <p class="text-lg font-semibold">{{ framework_info.version }}</p>
+                        </div>
+                        <div class="col-span-2">
+                            <p class="text-sm text-gray-400">Last Updated</p>
+                            <p class="text-lg font-semibold">{{ framework_info.last_updated }}</p>
+                        </div>
+                    </div>
+                    
+                    <p class="text-sm text-gray-500 mt-4">
+                        The Style Guru is active and will automatically score and refine all articles to match IntelliNews style.
+                    </p>
                 {% else %}
-                    <p class="text-red-400">❌ Automatic model update is NOT running.</p>
+                    <div class="mb-4">
+                        <p class="text-lg">
+                            <span class="status-indicator status-inactive"></span>
+                            Status: <span class="text-red-400 font-semibold">Not Configured</span>
+                        </p>
+                    </div>
+                    
+                    <p class="text-yellow-400 mb-4">
+                        ⚠️ The Style Guru framework has not been created yet. Click "Create Framework" below to analyze IntelliNews articles and set up the system.
+                    </p>
                 {% endif %}
-                <p class="text-gray-500 mt-2 text-sm">The model is scheduled to update automatically every 12 hours. You can also trigger a manual update below.</p>
             </div>
 
+            <!-- Actions -->
             <div class="max-w-2xl mx-auto mt-8">
-                <button id="update-model-btn" class="btn w-full text-lg">
-                    <span id="update-model-btn-text">Update Style Model Manually</span>
-                    <div id="loader" class="hidden animate-spin rounded-full h-5 w-5 border-b-2 border-white ml-3"></div>
-                </button>
+                <div class="bg-gray-800 p-6 rounded-lg">
+                    <h2 class="text-2xl font-semibold text-white mb-4">Actions</h2>
+                    
+                    <!-- Number of articles selector -->
+                    <div class="mb-4">
+                        <label class="block text-gray-300 mb-2">Number of Articles to Analyze</label>
+                        <select id="num-articles" class="bg-gray-700 text-white px-4 py-2 rounded w-full">
+                            <option value="50">50 articles (Quick - ~$1-2, 10-15 min)</option>
+                            <option value="100" selected>100 articles (Recommended - ~$2-5, 15-30 min)</option>
+                            <option value="200">200 articles (Comprehensive - ~$5-8, 30-45 min)</option>
+                            <option value="300">300 articles (Maximum - ~$8-12, 45-60 min)</option>
+                        </select>
+                    </div>
+                    
+                    {% if framework_info.exists %}
+                        <button id="update-btn" class="btn btn-secondary w-full text-lg mb-3" onclick="updateStyleGuru()">
+                            <span id="update-btn-text">Update Framework</span>
+                            <div id="update-loader" class="hidden inline-block animate-spin rounded-full h-5 w-5 border-b-2 border-white ml-3"></div>
+                        </button>
+                        <p class="text-sm text-gray-400 text-center">Update the framework with newer articles from IntelliNews</p>
+                    {% else %}
+                        <button id="create-btn" class="btn w-full text-lg mb-3" onclick="updateStyleGuru()">
+                            <span id="create-btn-text">Create Framework</span>
+                            <div id="create-loader" class="hidden inline-block animate-spin rounded-full h-5 w-5 border-b-2 border-white ml-3"></div>
+                        </button>
+                        <p class="text-sm text-gray-400 text-center">This will analyze IntelliNews articles and create the style framework</p>
+                    {% endif %}
+                </div>
             </div>
 
-            <div id="status-message" class="mt-6 text-center text-lg text-green-400 font-semibold"></div>
+            <div id="status-message" class="mt-6 text-center text-lg font-semibold"></div>
 
+            <!-- Logs -->
             <div id="log-container"></div>
         </main>
     </div>
 
     <script>
-        const ui = {};
-
-        function setUpdating(isUpdating) {
-            ui.updateBtn.disabled = isUpdating;
-            ui.updateBtnText.textContent = isUpdating ? 'Updating...' : 'Update Style Model Manually';
-            ui.loader.classList.toggle('hidden', !isUpdating);
-        }
-
-        async function updateModel() {
-            setUpdating(true);
-            ui.statusMessage.textContent = '🤖 Starting model update... This may take a few minutes.';
-
-            try {
-                const response = await fetch('/update-style-model', {
-                    method: 'POST',
-                });
-
-                const data = await response.json();
-                if (!response.ok) {
-                    throw new Error(data.detail || 'An unknown error occurred.');
-                }
-                ui.statusMessage.textContent = `🚀 ${data.output}`;
-            } catch (error) {
-                ui.statusMessage.textContent = `🔥 Error updating model: ${error.message}`;
-            } finally {
-                setUpdating(false);
-            }
-        }
+        let ws = null;
+        let updateInProgress = false;
 
         function connectWebSocket() {
             try {
-                const ws = new WebSocket(`ws://${window.location.host}/ws`);
+                ws = new WebSocket(`ws://${window.location.host}/ws`);
                 ws.onmessage = (event) => {
+                    const logContainer = document.getElementById('log-container');
                     const logEntry = document.createElement('div');
                     logEntry.textContent = event.data;
-                    ui.logContainer.appendChild(logEntry);
-                    ui.logContainer.scrollTop = ui.logContainer.scrollHeight;
+                    logContainer.appendChild(logEntry);
+                    logContainer.scrollTop = logContainer.scrollHeight;
                 };
                 ws.onerror = (error) => {
                     console.error('WebSocket Error:', error);
@@ -108,15 +162,92 @@
             }
         }
 
-        document.addEventListener('DOMContentLoaded', () => {
-            ui.updateBtn = document.getElementById('update-model-btn');
-            ui.updateBtnText = document.getElementById('update-model-btn-text');
-            ui.loader = document.getElementById('loader');
-            ui.statusMessage = document.getElementById('status-message');
-            ui.logContainer = document.getElementById('log-container');
+        async function updateStyleGuru() {
+            if (updateInProgress) {
+                alert('Update already in progress. Please wait.');
+                return;
+            }
 
+            const numArticles = document.getElementById('num-articles').value;
+            const confirmed = confirm(`This will analyze ${numArticles} articles and may take 15-60 minutes depending on the number selected. Continue?`);
+            
+            if (!confirmed) return;
+
+            updateInProgress = true;
+            const btn = document.getElementById('update-btn') || document.getElementById('create-btn');
+            const btnText = document.getElementById('update-btn-text') || document.getElementById('create-btn-text');
+            const loader = document.getElementById('update-loader') || document.getElementById('create-loader');
+            const statusMessage = document.getElementById('status-message');
+
+            btn.disabled = true;
+            btnText.textContent = 'Processing...';
+            loader.classList.remove('hidden');
+            statusMessage.textContent = `🤖 Starting analysis of ${numArticles} articles... This may take a while.`;
+            statusMessage.className = 'mt-6 text-center text-lg text-yellow-400 font-semibold';
+
+            try {
+                const response = await fetch(`/update-style-guru?num_articles=${numArticles}`, {
+                    method: 'POST',
+                });
+
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Update failed');
+                }
+                
+                statusMessage.textContent = `🚀 ${data.output}`;
+                statusMessage.className = 'mt-6 text-center text-lg text-green-400 font-semibold';
+
+                // Poll for completion
+                checkUpdateStatus();
+
+            } catch (error) {
+                statusMessage.textContent = `🔥 Error: ${error.message}`;
+                statusMessage.className = 'mt-6 text-center text-lg text-red-400 font-semibold';
+                updateInProgress = false;
+                btn.disabled = false;
+                btnText.textContent = '{% if framework_info.exists %}Update Framework{% else %}Create Framework{% endif %}';
+                loader.classList.add('hidden');
+            }
+        }
+
+        async function checkUpdateStatus() {
+            const interval = setInterval(async () => {
+                try {
+                    const response = await fetch('/style-guru-status');
+                    const status = await response.json();
+
+                    if (!status.updating) {
+                        clearInterval(interval);
+                        updateInProgress = false;
+                        
+                        const btn = document.getElementById('update-btn') || document.getElementById('create-btn');
+                        const btnText = document.getElementById('update-btn-text') || document.getElementById('create-btn-text');
+                        const loader = document.getElementById('update-loader') || document.getElementById('create-loader');
+                        
+                        btn.disabled = false;
+                        btnText.textContent = '{% if framework_info.exists %}Update Framework{% else %}Create Framework{% endif %}';
+                        loader.classList.add('hidden');
+
+                        if (status.framework_exists) {
+                            document.getElementById('status-message').textContent = '✅ Style Guru framework updated successfully! Refresh the page to see updated info.';
+                            document.getElementById('status-message').className = 'mt-6 text-center text-lg text-green-400 font-semibold';
+                            
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 2000);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Status check failed:', error);
+                }
+            }, 5000); // Check every 5 seconds
+        }
+
+        // Connect WebSocket on page load
+        document.addEventListener('DOMContentLoaded', () => {
             connectWebSocket();
-            ui.updateBtn.addEventListener('click', updateModel);
         });
     </script>
 </body>

@@ -1,0 +1,139 @@
+
+╔══════════════════════════════════════════════════════════════════╗
+║       INTELLINEWS COMPREHENSIVE STYLE FRAMEWORK v2.0             ║
+║              Based on Analysis of 300 Articles                   ║
+╚══════════════════════════════════════════════════════════════════╝
+
+
+▼ CORE PRINCIPLES
+──────────────────────────────────────────────────────────────────────
+1. Maintain objectivity and neutrality in reporting.
+2. Use precise and accurate data to support claims.
+3. Incorporate expert opinions and direct quotes for authority.
+4. Provide historical context to enhance understanding.
+5. Focus on clarity and conciseness in writing.
+6. Ensure each paragraph addresses a single idea or aspect.
+7. Use transitions to maintain a logical flow of information.
+8. Avoid speculation and unverified claims.
+9. Present balanced perspectives on controversial issues.
+10. Adhere to formal and analytical tone throughout the article.
+
+▼ LEAD PARAGRAPH FORMULA
+──────────────────────────────────────────────────────────────────────
+• Identify the main subject or entity involved.
+• State the key action or decision taken.
+• Provide context or background information.
+• Highlight the significance or potential impact.
+• Example: 'The Central Bank announced a new interest rate policy, aiming to curb inflation and stabilize the economy.'
+
+▼ SENTENCE PATTERNS
+──────────────────────────────────────────────────────────────────────
+• Subject + active verb + object (e.g., 'The government announced new reforms.')
+• Subject + passive verb + by agent (e.g., 'The report was released by the agency.')
+• Subject + verb + prepositional phrase (e.g., 'The economy grew by 3% last quarter.')
+• Subject + verb + that + clause (e.g., 'The minister stated that the policy would change.')
+• Introductory phrase + subject + verb + object (e.g., 'Following the meeting, the committee decided on new measures.')
+
+▼ VOCABULARY GUIDE
+──────────────────────────────────────────────────────────────────────
+
+ALWAYS USE:
+  ✓ comprehensive
+  ✓ sustainable
+  ✓ analytical
+  ✓ objective
+  ✓ informative
+
+OFTEN USE:
+  • expansion
+  • deficit
+  • highlight
+  • confirm
+  • projected
+
+NEVER USE:
+  ✗ rumors
+  ✗ gossip
+  ✗ unsubstantiated
+  ✗ speculated
+  ✗ claimed
+
+▼ ATTRIBUTION RULES
+──────────────────────────────────────────────────────────────────────
+• Use direct quotes with full titles and affiliations for experts and officials.
+• Cite sources with phrases like 'according to', 'reported by', or 'as stated by'.
+• Ensure clarity by providing context for the source's relevance.
+• Example: 'Economist John Doe, from the University of Economics, stated, “The new policy will likely boost growth.”'
+
+▼ TONE GUIDELINES
+──────────────────────────────────────────────────────────────────────
+• Maintain a formal and analytical tone throughout.
+• Avoid emotive language and personal opinions.
+• Focus on delivering factual and balanced information.
+• Use cautious language when discussing projections or forecasts.
+
+▼ ARTICLE STRUCTURE TEMPLATE
+──────────────────────────────────────────────────────────────────────
+• Lead: Introduce the main topic and its significance.
+• Background: Provide historical context and relevant details.
+• Analysis: Discuss implications, expert opinions, and data.
+• Conclusion: Summarize key points and potential future developments.
+
+▼ STYLE NUANCES
+──────────────────────────────────────────────────────────────────────
+• Integrate quotes seamlessly into the narrative.
+• Use precise figures and percentages for data presentation.
+• Balance quantitative data with qualitative insights.
+• Highlight contrasts and comparisons to provide depth.
+
+▼ COMMON MISTAKES TO AVOID
+──────────────────────────────────────────────────────────────────────
+✗ Using vague or unverified information.
+✗ Failing to attribute sources correctly.
+✗ Overloading paragraphs with multiple ideas.
+✗ Neglecting to provide context for data or quotes.
+
+▼ PRE-PUBLISH QUALITY CHECKLIST
+──────────────────────────────────────────────────────────────────────
+☐ Verify all data and statistics for accuracy.
+☐ Ensure all sources are properly cited and attributed.
+☐ Check for logical flow and coherence between paragraphs.
+☐ Review for adherence to tone and style guidelines.
+☐ Proofread for grammatical and typographical errors.
+
+▼ EXAMPLE OPENING PARAGRAPHS
+──────────────────────────────────────────────────────────────────────
+
+Example 1: Slovenia confronts its ageing challenge with contested pension reform
+The battle over the comprehensive reform of Slovenia’s pension system is shaping up to be one of the small country’s defining political struggles of the decade.The overhaul of the pension system in Slovenia, an EU country with a population of slightly over 2mn, has been discussed for years as a response to the country’s ageing population. However, the reform, hailed by the government as a long-ove
+
+Example 2: Afghanistan grinds to a halt as Taliban cuts off internet
+A sweeping internet shutdown across Afghanistan by the Taliban authorities has paralysed cross-border trade and disconnected millions of web users in what has been described as a disaster for the country.At the Dogharoun border crossing, nearly 800 Iranian and Afghan lorries were stranded mounting further problems with perishable food items beginning to perish in the heat while emergency items inc
+
+Example 3: VISEGRAD BLOG: Will Czechia drift into Slovak and Hungarian direction after this week’s elections?
+Czechia’s largest opposition party, billionaire ex-prime minister Andrej Babiš’ populist ANO, is widely expected to win the parliamentary elections scheduled for October 3-4. This would be a remarkable comeback after Babiš was narrowly ousted by a bloc of pro-Western parties in 2021 on the back of mass protests against his cabinet.With ANO’s return looking highly likely, the question now is what d
+
+Example 4: Milei to meet Trump at White House as Argentina seeks $20bn swap before election
+Argentine President Javier Milei will meet US President Donald Trump at the White House on October 14, less than two weeks before congressional elections that could determine the fate of the libertarian leader's economic reforms.The bilateral meeting, confirmed by Argentina's foreign ministry on September 30, represents the latest sign of deepening ties between the ideological allies as Washington
+
+Example 5: Landmark US–Africa trade deal expires, threatening thousands of jobs
+The expiration of the African Growth and Opportunity Act (AGOA) on September 30 has left exporters across sub-Saharan Africa bracing for sharp losses, as Washington failed to extend the long-running trade preference scheme. Without renewal, African governments and companies warn they will be forced to seek alternative markets or negotiate bilateral deals to preserve access.Introduced in 2000 under
+
+Example 6: Russian manufacturing PMI slump deepens in September as new orders and exports tumble
+Russia’s manufacturing sector deteriorated further in September, marking the fourth consecutive month of contraction, as both domestic and foreign demand weakened, S&P Global reported on September 30. (chart)The seasonally adjusted Russia Manufacturing Purchasing Managers’ Index (PMI) fell to 48.2 in September from 48.7 in August, indicating a sharper downturn in operating conditions. The decline 
+
+Example 7: COMMENT: How Kyrgyzstan is becoming a Chinese province
+Central Asia lies at the crossroads of major geopolitical and regional interests. Until recently, the countries of the region managed to balance between Russia, China, Turkey, and the collective West. However, while Kazakhstan and Uzbekistan have been successful in their foreign policy manoeuvres, Kyrgyzstan is rapidly becoming an appendage of China.Until recently, Kyrgyzstan viewed China with sus
+
+Example 8: Bulgaria aims to become regional leader in small modular reactors, says energy minister
+Bulgaria intends to position itself as a regional leader in small modular reactors (SMRs), leveraging its favourable geographical location and diverse energy mix, Minister of Energy Zhecho Stankov said at a round table on energy transition and sustainable development in Sofia, the Ministry of Energy reported on September 30. Stankov said that Bulgaria has strong potential to become one of the firs
+
+Example 9: Moldova’s economy turns to growth in Q2, helped by investments
+Moldova’s GDP increased by 1.1% y/y in Q2 (chart), driven by the higher volume of construction and the utilities sector, after a three-quarter recession prompted by the weak harvest last year, according to data published by the statistics bureau BNS. The seasonally adjusted GDP increased by 1.6% q/q and marked a new record, rising by 0.5% above the levels seen in the first half of 2024 before the 
+
+Example 10: Iraq resumes Kurdish crude exports with first loading at Ceyhan port
+Oil exports from Iraq’s semi-autonomous Kurdistan region have restarted after more than two years of suspension, following a breakthrough deal between Baghdad, the Kurdish regional government and international producers, as reported by Al Arabiya News on October 1. The return of Kurdish oil to global markets is expected to ease supply concerns and provide much-needed revenue for the KRG, which has
+
+══════════════════════════════════════════════════════════════════════
+END OF STYLE FRAMEWORK
+══════════════════════════════════════════════════════════════════════

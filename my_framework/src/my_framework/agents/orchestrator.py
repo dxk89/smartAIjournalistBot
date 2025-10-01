@@ -2,27 +2,46 @@
 
 import json
 import logging
+import os
 from my_framework.core.runnables import Runnable
 from my_framework.models.base import BaseChatModel
 from my_framework.agents.researcher import ResearcherAgent
 from my_framework.agents.writer import WriterAgent
+from my_framework.agents.iterative_writer import IterativeWriterAgent
 from my_framework.agents.editor import EditorReflectorAgent
 from my_framework.agents.publisher import PublisherAgent
 from my_framework.agents.summarizer import SummarizerAgent
 from my_framework.core.schemas import SystemMessage, HumanMessage
 from my_framework.apps import rules
-from my_framework.models.openai import safe_load_json # Import the safe loader
+from my_framework.models.openai import safe_load_json
 
 class OrchestratorAgent(Runnable):
     llm: BaseChatModel
 
-    def __init__(self, llm: BaseChatModel):
+    def __init__(self, llm: BaseChatModel, use_style_guru: bool = True, score_threshold: float = 0.80):
         self.llm = llm
         self.researcher = ResearcherAgent()
         self.summarizer = SummarizerAgent(llm=llm)
-        self.writer = WriterAgent(llm=llm)
+        
+        # Use iterative writer if style guru is enabled
+        self.use_style_guru = use_style_guru
+        if use_style_guru:
+            # Check if style framework exists
+            if os.path.exists("intellinews_style_framework.json"):
+                logging.info("✅ Style Guru enabled - using IterativeWriterAgent")
+                self.writer = IterativeWriterAgent(llm=llm, max_iterations=5, score_threshold=score_threshold)
+            else:
+                logging.warning("⚠️ Style framework not found. Run setup_style_guru.py first!")
+                logging.info("   Falling back to regular WriterAgent")
+                self.writer = WriterAgent(llm=llm)
+                self.use_style_guru = False
+        else:
+            logging.info("Style Guru disabled - using regular WriterAgent")
+            self.writer = WriterAgent(llm=llm)
+        
         self.editor = EditorReflectorAgent(llm=llm)
         self.publisher = PublisherAgent()
+        
         self.agent_map = {
             "research": self.researcher,
             "summarize": self.summarizer,
@@ -34,6 +53,10 @@ class OrchestratorAgent(Runnable):
 
     def invoke(self, input: dict, config=None) -> str:
         logging.info("--- Orchestrator Agent Starting Workflow ---")
+        
+        if self.use_style_guru:
+            logging.info("🎨 STYLE GURU MODE: Articles will be iteratively refined")
+        
         user_goal = input.get("input")
         self.memory.append(HumanMessage(content=user_goal))
         
@@ -44,15 +67,13 @@ class OrchestratorAgent(Runnable):
             HumanMessage(content=user_goal)
         ]
         plan_response = self.llm.invoke(plan_prompt)
-        logging.info(f"Orchestrator: 📝 Plan received from LLM: {plan_response.content}")
+        logging.info(f"Orchestrator: 📝 Plan received from LLM")
         
-        # FIX: Use the safe JSON loader to handle malformed LLM output
         try:
             plan = safe_load_json(plan_response.content)
         except (json.JSONDecodeError, ValueError) as e:
             logging.error(f"Orchestrator: ❌ Failed to parse plan from LLM: {e}")
             return f"Error: Could not decode the workflow plan. {e}"
-
 
         # 2. Execute Plan
         context = {"user_goal": user_goal, **input}
@@ -69,12 +90,28 @@ class OrchestratorAgent(Runnable):
                     agent_input[key] = context.get(lookup_key)
                     logging.info(f"Orchestrator:  dynamically setting '{key}' from context.")
 
-
             if agent_name in self.agent_map:
                 agent = self.agent_map[agent_name]
                 result = agent.invoke(agent_input)
-                context[f"step_{i+1}_output"] = result
-                self.memory.append(HumanMessage(content=f"Step {i+1} ({agent_name}): {result}"))
+                
+                # For iterative writer, extract the final article
+                if agent_name == "write" and self.use_style_guru and isinstance(result, dict):
+                    if result.get("success"):
+                        logging.info(f"Orchestrator: ✅ Article accepted after {result.get('iterations')} iterations")
+                        logging.info(f"Orchestrator:    Final score: {result.get('score'):.3f}")
+                        context[f"step_{i+1}_output"] = result["final_article"]
+                        
+                        # Log iteration history
+                        for iter_data in result.get("history", []):
+                            logging.info(f"   Iteration {iter_data['iteration']}: Score {iter_data['score']:.3f}")
+                    else:
+                        logging.warning(f"Orchestrator: ⚠️ Article did not reach threshold after {result.get('iterations')} iterations")
+                        logging.warning(f"Orchestrator:    Best score: {result.get('score'):.3f}")
+                        context[f"step_{i+1}_output"] = result["final_article"]
+                else:
+                    context[f"step_{i+1}_output"] = result
+                
+                self.memory.append(HumanMessage(content=f"Step {i+1} ({agent_name}): completed"))
                 logging.info(f"Orchestrator: ✅ Step {i+1} completed.")
             else:
                 context[f"step_{i+1}_output"] = f"Error: Agent '{agent_name}' not found."

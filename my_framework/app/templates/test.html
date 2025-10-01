@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Simple Test</title>
+    <style>
+        body { font-family: Arial; padding: 20px; background: #1a1a1a; color: white; }
+        button { padding: 10px 20px; font-size: 16px; margin: 10px; cursor: pointer; }
+        #output { background: #2a2a2a; padding: 20px; margin-top: 20px; border: 1px solid #444; }
+        .success { color: #0f0; }
+        .error { color: #f00; }
+    </style>
+</head>
+<body>
+    <h1>System Test Page</h1>
+    
+    <h2>1. Test WebSocket</h2>
+    <button onclick="testWebSocket()">Test WebSocket Connection</button>
+    <div id="ws-status"></div>
+    
+    <h2>2. Test API Status</h2>
+    <button onclick="testStatus()">Check Status</button>
+    <div id="status-result"></div>
+    
+    <h2>3. Test Article Submission</h2>
+    <input type="text" id="test-url" placeholder="Enter URL" style="width: 400px; padding: 8px;">
+    <button onclick="testSubmit()">Submit Test Article</button>
+    <div id="submit-result"></div>
+    
+    <h2>Live Logs</h2>
+    <div id="output"></div>
+    
+    <script>
+        let ws = null;
+        
+        function log(message, isError = false) {
+            const output = document.getElementById('output');
+            const div = document.createElement('div');
+            div.className = isError ? 'error' : 'success';
+            div.textContent = new Date().toLocaleTimeString() + ' - ' + message;
+            output.appendChild(div);
+            output.scrollTop = output.scrollHeight;
+        }
+        
+        function testWebSocket() {
+            const statusDiv = document.getElementById('ws-status');
+            statusDiv.innerHTML = 'Connecting...';
+            
+            try {
+                ws = new WebSocket('ws://' + window.location.host + '/ws');
+                
+                ws.onopen = () => {
+                    statusDiv.innerHTML = '<span class="success">✓ WebSocket CONNECTED!</span>';
+                    log('WebSocket connected successfully');
+                };
+                
+                ws.onerror = (error) => {
+                    statusDiv.innerHTML = '<span class="error">✗ WebSocket ERROR</span>';
+                    log('WebSocket error: ' + error, true);
+                };
+                
+                ws.onmessage = (event) => {
+                    log('Received: ' + event.data);
+                };
+                
+                ws.onclose = () => {
+                    statusDiv.innerHTML = '<span class="error">WebSocket closed</span>';
+                    log('WebSocket closed');
+                };
+            } catch (error) {
+                statusDiv.innerHTML = '<span class="error">✗ Exception: ' + error.message + '</span>';
+                log('Exception: ' + error.message, true);
+            }
+        }
+        
+        async function testStatus() {
+            const statusDiv = document.getElementById('status-result');
+            statusDiv.innerHTML = 'Checking...';
+            
+            try {
+                const response = await fetch('/style-guru-status');
+                const data = await response.json();
+                statusDiv.innerHTML = '<pre class="success">' + JSON.stringify(data, null, 2) + '</pre>';
+                log('Status check successful');
+            } catch (error) {
+                statusDiv.innerHTML = '<span class="error">✗ Error: ' + error.message + '</span>';
+                log('Status check failed: ' + error.message, true);
+            }
+        }
+        
+        async function testSubmit() {
+            const url = document.getElementById('test-url').value;
+            const resultDiv = document.getElementById('submit-result');
+            
+            if (!url) {
+                alert('Please enter a URL');
+                return;
+            }
+            
+            resultDiv.innerHTML = 'Submitting...';
+            log('Submitting article with URL: ' + url);
+            
+            const payload = {
+                input: {
+                    user_goal: 'Write an article based on: ' + url,
+                    source_url: url,
+                    openai_api_key: 'YOUR_KEY_HERE', // Replace with actual key
+                    username: 'test',
+                    password: 'test'
+                }
+            };
+            
+            try {
+                const response = await fetch('/invoke', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                const data = await response.json();
+                resultDiv.innerHTML = '<span class="success">✓ Submitted! Check logs below.</span>';
+                log('Submission response: ' + JSON.stringify(data));
+            } catch (error) {
+                resultDiv.innerHTML = '<span class="error">✗ Error: ' + error.message + '</span>';
+                log('Submission failed: ' + error.message, true);
+            }
+        }
+        
+        // Auto-connect WebSocket on load
+        window.onload = () => {
+            log('Page loaded, ready to test');
+        };
+    </script>
+</body>
+</html>

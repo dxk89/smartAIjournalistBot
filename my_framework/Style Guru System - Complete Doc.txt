@@ -1,0 +1,351 @@
+# Style Guru System - Complete Documentation
+
+## Overview
+
+The Style Guru system performs **deep analysis of 300 IntelliNews articles** to create a comprehensive style framework. When writing articles, it uses an **iterative refinement loop** where each draft is scored and refined until it meets IntelliNews quality standards.
+
+## How It Works
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    ONE-TIME SETUP PROCESS                       │
+└─────────────────────────────────────────────────────────────────┘
+
+1. Fetch 300 articles from IntelliNews RSS feeds
+2. Analyze in batches using GPT-4 (30 batches × 10 articles)
+3. Extract patterns: leads, vocabulary, tone, structure, etc.
+4. Synthesize into comprehensive style framework
+5. Train neural network scorer on statistical features
+6. Save framework files for future use
+
+┌─────────────────────────────────────────────────────────────────┐
+│                  ARTICLE GENERATION PROCESS                     │
+└─────────────────────────────────────────────────────────────────┘
+
+FOR EACH ARTICLE:
+
+1. Scrape source URL
+   ↓
+2. Write Draft 1 (using style framework)
+   ↓
+3. Score Draft 1 (statistical + LLM analysis)
+   - Lead quality: 0.65
+   - Structure: 0.70
+   - Vocabulary: 0.58
+   - Tone: 0.75
+   - Attribution: 0.60
+   - OVERALL: 0.66/1.00 ❌
+   ↓
+4. Get detailed feedback:
+   "Weaknesses:
+   - Opening is too generic
+   - Missing direct attribution
+   - Using forbidden words: 'Furthermore', 'robust'"
+   ↓
+5. Write Draft 2 (applying feedback)
+   ↓
+6. Score Draft 2
+   - OVERALL: 0.78/1.00 ❌
+   ↓
+7. Refine again...
+   ↓
+8. Write Draft 3
+   ↓
+9. Score Draft 3
+   - OVERALL: 0.84/1.00 ✅ ACCEPTED!
+   ↓
+10. Generate metadata & publish
+```
+
+## Installation & Setup
+
+### Prerequisites
+
+- Python 3.9+
+- OpenAI API key (for GPT-4)
+- Internet connection (for RSS feeds)
+
+### Step 1: Install Dependencies
+
+```bash
+cd my_framework
+pip install -r requirements.txt
+```
+
+### Step 2: Set API Key
+
+**Windows:**
+```cmd
+set OPENAI_API_KEY=your-key-here
+```
+
+**Linux/Mac:**
+```bash
+export OPENAI_API_KEY=your-key-here
+```
+
+### Step 3: Run One-Time Setup
+
+```bash
+python setup_style_guru.py
+```
+
+This will:
+- ✅ Fetch 300 articles (~5 minutes)
+- ✅ Run deep analysis (~30-45 minutes)
+- ✅ Create style framework
+- ✅ Train neural scorer
+- ✅ Generate framework files
+
+**Cost:** ~$5-10 in OpenAI API credits (GPT-4 calls)
+
+**This only needs to be run ONCE** (or when you want to update with newer articles)
+
+## Files Created
+
+After setup, you'll have:
+
+```
+my_framework/
+├── intellinews_style_framework.json    # Complete framework (JSON)
+├── intellinews_style_guide.txt         # Human-readable guide
+├── latest_style_sheet.txt              # Alternative format
+└── data/
+    ├── X.npy                           # Training features
+    ├── y.npy                           # Training labels
+    └── model_weights.npz               # Trained scorer
+```
+
+## Usage
+
+### Automatic Mode (Default)
+
+The system is **automatically enabled** if the framework files exist:
+
+```python
+# In your code
+from my_framework.agents.orchestrator import OrchestratorAgent
+from my_framework.models.openai import ChatOpenAI
+
+llm = ChatOpenAI(model_name="gpt-4o", temperature=0.5)
+orchestrator = OrchestratorAgent(llm=llm)  # Style Guru enabled by default
+
+result = orchestrator.invoke({
+    "input": "Write an article about...",
+    "source_url": "https://example.com/article",
+    "username": "your_username",
+    "password": "your_password"
+})
+```
+
+The orchestrator will automatically:
+1. Use IterativeWriterAgent instead of regular WriterAgent
+2. Score each draft
+3. Refine until threshold is met (default: 0.80)
+4. Log all iterations
+
+### Manual Control
+
+```python
+# Disable Style Guru
+orchestrator = OrchestratorAgent(llm=llm, use_style_guru=False)
+
+# Or adjust threshold
+orchestrator = OrchestratorAgent(
+    llm=llm, 
+    use_style_guru=True,
+    score_threshold=0.85  # Higher standard
+)
+```
+
+### Direct Usage of Components
+
+```python
+# Score an existing article
+from my_framework.style_guru.scorer import score_article
+
+score, feedback = score_article("Your article text here...")
+print(f"Score: {score:.3f}")
+print(feedback)
+
+# Use iterative writer directly
+from my_framework.agents.iterative_writer import IterativeWriterAgent
+
+writer = IterativeWriterAgent(llm=llm, max_iterations=5, score_threshold=0.80)
+result = writer.invoke({
+    "source_content": "Source article content...",
+    "user_prompt": "Write about X"
+})
+
+print(f"Final score: {result['score']:.3f}")
+print(f"Iterations: {result['iterations']}")
+print(f"Article: {result['final_article']}")
+```
+
+## Configuration
+
+### Score Threshold
+
+The threshold determines when an article is "good enough":
+
+- **0.70-0.75:** Acceptable quality (faster, more iterations succeed)
+- **0.80:** Recommended (good balance)
+- **0.85-0.90:** High quality (slower, fewer iterations succeed)
+- **0.95+:** Exceptional (very difficult to achieve)
+
+### Max Iterations
+
+Default is 5 iterations. Adjust based on your needs:
+
+```python
+writer = IterativeWriterAgent(
+    llm=llm, 
+    max_iterations=7,  # Allow more attempts
+    score_threshold=0.80
+)
+```
+
+## What Gets Scored
+
+Each article receives scores in these categories:
+
+1. **Lead Quality (0-1.0):** How well the opening grabs attention and conveys key info
+2. **Structure (0-1.0):** Organization, flow, paragraph structure
+3. **Vocabulary (0-1.0):** Word choice, avoiding forbidden words, using preferred terms
+4. **Tone (0-1.0):** Professional, objective, journalistic tone
+5. **Attribution (0-1.0):** Proper source citations, quote integration
+
+**Overall Score:** Weighted combination (70% LLM, 30% statistical)
+
+## Understanding the Feedback
+
+Example feedback:
+
+```
+OVERALL SCORE: 0.78/1.00
+
+COMPONENT SCORES:
+  Lead Quality:    0.85/1.00
+  Structure:       0.80/1.00
+  Vocabulary:      0.65/1.00  ← Issue here
+  Tone:            0.82/1.00
+  Attribution:     0.78/1.00
+
+WEAKNESSES:
+  ✗ Uses forbidden word "Furthermore" in paragraph 2
+  ✗ Phrase "cutting-edge technology" is too promotional
+  ✗ Missing direct attribution for statistics
+
+REVISION PRIORITIES:
+  1. Remove "Furthermore" and use simple transition
+  2. Replace "cutting-edge" with neutral description
+  3. Add "according to [source]" for statistics
+```
+
+## Monitoring & Logs
+
+When running with Style Guru enabled, you'll see detailed logs:
+
+```
+[INFO] ✅ Style Guru enabled - using IterativeWriterAgent
+
+▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+ITERATION 1/5
+▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
+[1/3] Writing initial draft...
+   Article length: 2847 characters
+
+[2/3] Scoring article with Style Guru...
+   Statistical Score: 0.723
+   LLM Score: 0.756
+
+[3/3] Result: ❌ NEEDS REVISION - Score 0.745 below threshold 0.80
+
+Iteration 1: Score 0.745
+
+▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+ITERATION 2/5
+▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼▼
+
+[1/3] Refining article (attempt 2)...
+...
+
+✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅
+SUCCESS! Article accepted after 3 iterations
+✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅✅
+```
+
+## Troubleshooting
+
+### "Style framework not found"
+
+Run the setup:
+```bash
+python setup_style_guru.py
+```
+
+### "No articles fetched from RSS"
+
+Check internet connection and RSS URLs in `training.py`
+
+### Score always too low
+
+- Lower the threshold: `score_threshold=0.75`
+- Increase max iterations: `max_iterations=7`
+- Check if framework was generated correctly
+
+### API rate limits
+
+Add delays between iterations or reduce batch size in `deep_analyzer.py`
+
+## Re-running Setup
+
+To update the style framework with newer articles:
+
+```bash
+python setup_style_guru.py
+```
+
+This will overwrite existing files. The system will use the latest framework automatically.
+
+## Advanced: Custom Scoring
+
+Create your own scorer:
+
+```python
+from my_framework.style_guru.scorer import score_article
+
+def custom_score_article(text):
+    score, feedback = score_article(text)
+    
+    # Add custom logic
+    if "breaking news" in text.lower():
+        score += 0.05  # Bonus for timely articles
+    
+    return score, feedback
+```
+
+## Performance
+
+- **Setup time:** 30-60 minutes (one-time)
+- **Per article:** 2-5 minutes (depends on iterations)
+- **API cost per article:** ~$0.20-0.50 (GPT-4 calls)
+
+## Best Practices
+
+1. **Run setup once** when you first install
+2. **Re-run setup monthly** to capture newer IntelliNews style
+3. **Monitor iteration logs** to understand what's being improved
+4. **Adjust threshold** based on your quality requirements
+5. **Review framework files** to understand what the AI is learning
+
+## Support
+
+If you encounter issues:
+
+1. Check the log files
+2. Verify API key is set correctly
+3. Ensure all dependencies are installed
+4. Try running setup again
+5. Check that RSS feeds are accessible

@@ -15,6 +15,13 @@ from my_framework.core.schemas import SystemMessage, HumanMessage
 from my_framework.apps import rules
 from my_framework.models.openai import safe_load_json
 
+# Import Style Guru scorer for pre-written articles
+try:
+    from my_framework.style_guru.scorer import score_article
+    STYLE_GURU_AVAILABLE = True
+except ImportError:
+    STYLE_GURU_AVAILABLE = False
+
 class OrchestratorAgent(Runnable):
     llm: BaseChatModel
 
@@ -60,7 +67,14 @@ class OrchestratorAgent(Runnable):
         user_goal = input.get("input")
         self.memory.append(HumanMessage(content=user_goal))
         
-        # 1. Plan
+        # Check if this is a pre-written article (source_content provided directly)
+        is_prewritten = "source_content" in input and not input.get("source_url")
+        
+        if is_prewritten:
+            logging.info("📄 PRE-WRITTEN ARTICLE DETECTED")
+            return self._handle_prewritten_article(input)
+        
+        # 1. Plan (for non-pre-written articles)
         logging.info("Orchestrator: 🧠 Planning the workflow...")
         plan_prompt = [
             SystemMessage(content=rules.ORCHESTRATOR_SYSTEM_PROMPT),
@@ -119,3 +133,68 @@ class OrchestratorAgent(Runnable):
 
         logging.info("--- Orchestrator Workflow Complete ---")
         return context.get(f"step_{len(plan)}_output", "Workflow finished with no final output.")
+
+    def _handle_prewritten_article(self, input: dict) -> str:
+        """
+        Special handler for pre-written articles.
+        Scores them with Style Guru (for informational purposes) but doesn't refine.
+        """
+        source_content = input.get("source_content")
+        username = input.get("username")
+        password = input.get("password")
+        
+        logging.info("\n" + "="*70)
+        logging.info("PRE-WRITTEN ARTICLE WORKFLOW")
+        logging.info("="*70)
+        
+        # Step 1: Score with Style Guru (informational only)
+        if self.use_style_guru and STYLE_GURU_AVAILABLE:
+            logging.info("\n[1/3] 📊 Scoring pre-written article with Style Guru...")
+            logging.info("   (This is informational only - article will not be modified)")
+            
+            try:
+                score, feedback = score_article(source_content)
+                logging.info(f"\n✨ STYLE GURU SCORE: {score:.3f}/1.00")
+                logging.info("\n" + "─"*70)
+                logging.info("FEEDBACK SUMMARY:")
+                logging.info("─"*70)
+                # Log just the first part of feedback (not the whole thing)
+                feedback_lines = feedback.split('\n')[:15]
+                for line in feedback_lines:
+                    logging.info(line)
+                logging.info("─"*70)
+                
+                if score >= 0.80:
+                    logging.info("✅ Article meets quality threshold!")
+                else:
+                    logging.info("⚠️ Article below quality threshold (0.80)")
+                    logging.info("   However, pre-written articles are submitted as-is")
+                
+            except Exception as e:
+                logging.warning(f"⚠️ Could not score article: {e}")
+        else:
+            logging.info("\n[1/3] ⚠️ Style Guru not available - skipping scoring")
+        
+        # Step 2: Generate metadata (using Editor agent)
+        logging.info("\n[2/3] 📝 Generating metadata...")
+        editor_input = {
+            "draft_article": source_content,
+            "source_content": source_content  # Same as draft for pre-written
+        }
+        article_json = self.editor.invoke(editor_input)
+        logging.info("✅ Metadata generated")
+        
+        # Step 3: Publish
+        logging.info("\n[3/3] 🚀 Publishing to CMS...")
+        publisher_input = {
+            "article_json_string": article_json,
+            "username": username,
+            "password": password
+        }
+        result = self.publisher.invoke(publisher_input)
+        
+        logging.info("\n" + "="*70)
+        logging.info("✅ PRE-WRITTEN ARTICLE WORKFLOW COMPLETE")
+        logging.info("="*70)
+        
+        return result

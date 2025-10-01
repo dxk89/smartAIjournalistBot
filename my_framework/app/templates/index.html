@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Journalist Bot v1.5</title>
+    <title>AI Journalist Bot v2.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -22,6 +22,8 @@
         .btn:disabled { background-color: #4b5563; cursor: not-allowed; }
         .btn-secondary { background-color: #4b5563; }
         .btn-secondary:hover { background-color: #374151; }
+        .btn-success { background-color: #059669; }
+        .btn-success:hover { background-color: #047857; }
         .label { display: block; margin-bottom: 0.25rem; font-weight: 500; color: #9ca3af; }
         .tab { padding: 0.75rem 1.5rem; cursor: pointer; border-bottom: 2px solid transparent; }
         .tab-active { color: #3b82f6; border-bottom-color: #3b82f6; }
@@ -33,11 +35,26 @@
             border-radius: 0.5rem;
             padding: 1rem;
             margin-top: 2rem;
-            height: 300px;
+            height: 400px;
             overflow-y: scroll;
             font-family: 'Courier New', Courier, monospace;
             font-size: 0.875rem;
             color: #9ca3af;
+        }
+        .info-banner {
+            background-color: #1e3a5f;
+            border-left: 4px solid #3b82f6;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border-radius: 0.375rem;
+        }
+        .info-banner.success {
+            background-color: #1e4d3c;
+            border-left-color: #059669;
+        }
+        .info-banner.warning {
+            background-color: #4d3d1e;
+            border-left-color: #f59e0b;
         }
     </style>
 </head>
@@ -45,7 +62,8 @@
     <div class="container">
         <header class="text-center mb-8">
             <h1 class="text-4xl font-bold text-white">AI Journalist Bot</h1>
-            <p class="text-xl text-gray-400">Version 1.5</p>
+            <p class="text-xl text-gray-400">Version 2.0 with Style Guru</p>
+            <div id="style-guru-status" class="mt-4"></div>
         </header>
 
         <main>
@@ -58,8 +76,14 @@
                 </div>
 
                 <div id="content-urls" class="tab-content tab-content-active max-w-4xl mx-auto space-y-6">
+                    <div class="info-banner">
+                        <p class="text-sm"><strong>✨ Style Guru Mode:</strong> Articles from URLs will be scored and refined iteratively until they meet IntelliNews quality standards (0.80+).</p>
+                    </div>
                 </div>
                 <div id="content-prewritten" class="tab-content max-w-4xl mx-auto space-y-6">
+                    <div class="info-banner warning">
+                        <p class="text-sm"><strong>📄 Pre-written Articles:</strong> These will be scored for informational purposes but submitted as-is without modification.</p>
+                    </div>
                 </div>
                 <div id="content-sheets" class="tab-content max-w-4xl mx-auto space-y-6">
                 </div>
@@ -76,6 +100,39 @@
             tabs: {},
             tabContents: {}
         };
+
+        // Check Style Guru status on page load
+        async function checkStyleGuruStatus() {
+            try {
+                const response = await fetch('/style-guru-status');
+                const data = await response.json();
+                const statusDiv = document.getElementById('style-guru-status');
+                
+                if (data.framework_exists) {
+                    statusDiv.innerHTML = `
+                        <div class="info-banner success">
+                            <p class="text-sm">
+                                <strong>✅ Style Guru Active</strong> - 
+                                Articles analyzed: ${data.articles_analyzed || 'Unknown'} | 
+                                <a href="/style-guru" class="text-blue-400 hover:text-blue-300 underline">Manage Style Guru</a>
+                            </p>
+                        </div>
+                    `;
+                } else {
+                    statusDiv.innerHTML = `
+                        <div class="info-banner warning">
+                            <p class="text-sm">
+                                <strong>⚠️ Style Guru Not Configured</strong> - 
+                                Articles will not be scored. 
+                                <a href="/style-guru" class="text-blue-400 hover:text-blue-300 underline">Set up Style Guru</a>
+                            </p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Failed to check Style Guru status:', error);
+            }
+        }
 
         function showTab(tabName) {
             for (const name in ui.tabs) {
@@ -239,18 +296,18 @@
             ui.tabContents.settings = document.getElementById('content-settings');
 
             // URLs Tab
-            let urlsHTML = '<button class="btn w-full mb-6" onclick="submitAllUrls()">Submit All URLs to CMS</button>';
+            let urlsHTML = '<button class="btn btn-success w-full mb-6" onclick="submitAllUrls()">Submit All URLs to CMS</button>';
             for (let i = 0; i < 3; i++) {
                 urlsHTML += createUrlInput(i);
             }
-            ui.tabContents.urls.innerHTML = urlsHTML;
+            ui.tabContents.urls.innerHTML += urlsHTML;
 
             // Pre-written Tab
             let prewrittenHTML = '';
             for (let i = 0; i < 3; i++) {
                 prewrittenHTML += createPrewrittenInput(i);
             }
-            ui.tabContents.prewritten.innerHTML = prewrittenHTML;
+            ui.tabContents.prewritten.innerHTML += prewrittenHTML;
 
             // Google Sheets Tab
             ui.tabContents.sheets.innerHTML = `
@@ -295,10 +352,39 @@
                 </div>
             `;
 
-            loadSettings(); // Load any saved settings on startup
+            loadSettings();
+            checkStyleGuruStatus();
         }
 
-        document.addEventListener('DOMContentLoaded', initializeUI);
+        // WebSocket for logs
+        let ws = null;
+        function connectWebSocket() {
+            try {
+                ws = new WebSocket(`ws://${window.location.host}/ws`);
+                ws.onmessage = (event) => {
+                    const logContainer = document.getElementById('log-container');
+                    const logEntry = document.createElement('div');
+                    logEntry.textContent = event.data;
+                    
+                    // Color code important messages
+                    if (event.data.includes('✅')) logEntry.style.color = '#10b981';
+                    if (event.data.includes('❌') || event.data.includes('🔥')) logEntry.style.color = '#ef4444';
+                    if (event.data.includes('⚠️')) logEntry.style.color = '#f59e0b';
+                    if (event.data.includes('SCORE:')) logEntry.style.color = '#3b82f6';
+                    
+                    logContainer.appendChild(logEntry);
+                    logContainer.scrollTop = logContainer.scrollHeight;
+                };
+                ws.onerror = (error) => console.error('WebSocket Error:', error);
+            } catch (error) {
+                console.error('Failed to connect to WebSocket:', error);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeUI();
+            connectWebSocket();
+        });
     </script>
 </body>
 </html>

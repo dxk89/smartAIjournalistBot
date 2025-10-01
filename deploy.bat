@@ -20,6 +20,14 @@ echo  UPLOADING CHANGES TO GITHUB
 echo ===============================================
 echo.
 
+:: Remove nested git repository in my_framework if it exists
+if exist "my_framework\.git" (
+    echo Fixing nested Git repository issue...
+    rd /s /q "my_framework\.git"
+    echo Fixed!
+    echo.
+)
+
 :: Add all new and modified files to be uploaded
 git add .
 echo All changes have been prepared for upload.
@@ -30,11 +38,25 @@ set /p commitMessage="Enter a short description for this upload: "
 
 :: Save the changes with your description
 git commit -m "%commitMessage%"
+if errorlevel 1 (
+    echo.
+    echo No changes to commit or commit failed.
+    echo.
+    pause
+    exit /b
+)
 echo.
 
 :: Push the changes to the 'main' branch on GitHub
 echo Uploading to GitHub...
 git push origin main
+if errorlevel 1 (
+    echo.
+    echo ERROR: Push failed. Check your internet connection and GitHub credentials.
+    echo.
+    pause
+    exit /b
+)
 echo.
 
 echo ===============================================

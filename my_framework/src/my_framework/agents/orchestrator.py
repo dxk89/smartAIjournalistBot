@@ -167,7 +167,7 @@ class OrchestratorAgent(Runnable):
                 if score >= 0.80:
                     logging.info("✅ Article meets quality threshold!")
                 else:
-                    logging.info("⚠️ Article below quality threshold (0.80)")
+                    logging.info(f"⚠️ Article scored {score:.2f}, below quality threshold (0.80)")
                     logging.info("   However, pre-written articles are submitted as-is")
                 
             except Exception as e:
@@ -198,3 +198,134 @@ class OrchestratorAgent(Runnable):
         logging.info("="*70)
         
         return result
+    
+    def rewrite_only(self, input: dict) -> dict:
+        """
+        Rewrite an article from a URL without publishing.
+        Returns the article text, score, and feedback.
+        """
+        source_url = input.get("source_url")
+        
+        if not source_url:
+            return {"error": "No source URL provided"}
+        
+        logging.info("\n" + "="*70)
+        logging.info("REWRITE ONLY WORKFLOW")
+        logging.info("="*70)
+        logging.info(f"Source URL: {source_url}")
+        
+        # Step 1: Research (scrape URL)
+        logging.info("\n[1/3] 📡 Scraping URL...")
+        source_content = self.researcher.invoke({"source_url": source_url})
+        
+        if isinstance(source_content, dict) and "error" in source_content:
+            return source_content
+        
+        logging.info(f"✅ Scraped {len(source_content)} characters")
+        
+        # Step 2: Write with Style Guru
+        logging.info("\n[2/3] ✍️ Writing article with Style Guru...")
+        writer_input = {
+            "source_content": source_content,
+            "user_prompt": "Write a news article based on this content"
+        }
+        
+        result = self.writer.invoke(writer_input)
+        
+        # Initialize defaults
+        article = ""
+        score = 0.0
+        component_scores = {
+            "lead_quality": 0.0,
+            "structure": 0.0,
+            "vocabulary": 0.0,
+            "tone": 0.0,
+            "attribution": 0.0
+        }
+        feedback = ""
+        iterations = 0
+        
+        # Extract data from result
+        if isinstance(result, dict):
+            if result.get("success"):
+                article = result.get("final_article", "")
+                score = result.get("score", 0.0)
+                iterations = result.get("iterations", 0)
+                history = result.get("history", [])
+                
+                # Get the last feedback from history
+                if history:
+                    last_entry = history[-1]
+                    feedback = last_entry.get("feedback", "")
+                
+                logging.info(f"\n✅ Article completed after {iterations} iterations")
+                logging.info(f"   Final score: {score:.3f}")
+            else:
+                # Handle failure case
+                article = result.get("final_article", "")
+                score = result.get("score", 0.0)
+                feedback = result.get("message", "Article did not meet threshold")
+        else:
+            # Fallback if result is just a string
+            article = str(result)
+            feedback = "Style Guru not available"
+        
+        # Step 3: Parse component scores from feedback
+        logging.info("\n[3/3] 📊 Extracting component scores...")
+        
+        if feedback:
+            import re
+            
+            # Pattern to match score lines like "Lead Quality:    0.85/1.00"
+            patterns = {
+                "lead_quality": r"Lead Quality:\s*(\d+\.\d+)",
+                "structure": r"Structure:\s*(\d+\.\d+)",
+                "vocabulary": r"Vocabulary:\s*(\d+\.\d+)",
+                "tone": r"Tone:\s*(\d+\.\d+)",
+                "attribution": r"Attribution:\s*(\d+\.\d+)"
+            }
+            
+            for component, pattern in patterns.items():
+                match = re.search(pattern, feedback, re.IGNORECASE)
+                if match:
+                    component_scores[component] = float(match.group(1))
+                    logging.info(f"   Extracted {component}: {component_scores[component]:.2f}")
+        
+        # Clean up the article - remove any feedback that might have leaked in
+        if article:
+            # Remove any lines that look like feedback headers
+            lines = article.split('\n')
+            cleaned_lines = []
+            skip_mode = False
+            
+            for line in lines:
+                # Check if this is a feedback section
+                if any(marker in line for marker in ['OVERALL SCORE:', 'COMPONENT SCORES:', 'STRENGTHS:', 'WEAKNESSES:', 'DETAILED FEEDBACK:', 'REVISION PRIORITIES:', '═'*10, '─'*10]):
+                    skip_mode = True
+                    continue
+                
+                # If we're in skip mode, check if we're back to article content
+                if skip_mode and line.strip() and not line.startswith(' '):
+                    # Might be back to article content
+                    skip_mode = False
+                
+                if not skip_mode and line.strip():
+                    cleaned_lines.append(line)
+            
+            article = '\n'.join(cleaned_lines).strip()
+        
+        logging.info("\n" + "="*70)
+        logging.info("✅ REWRITE COMPLETE")
+        logging.info(f"   Article length: {len(article)} characters")
+        logging.info(f"   Score: {score:.3f}")
+        logging.info(f"   Component scores extracted: {sum(1 for v in component_scores.values() if v > 0)}/5")
+        logging.info("="*70)
+        
+        return {
+            "article": article,
+            "score": float(score),  # Ensure it's a float, not numpy float
+            "component_scores": {k: float(v) for k, v in component_scores.items()},  # Ensure all are floats
+            "feedback": feedback,
+            "iterations": iterations,
+            "success": True
+        }

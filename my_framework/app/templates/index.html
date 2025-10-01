@@ -56,6 +56,9 @@
             background-color: #4d3d1e;
             border-left-color: #f59e0b;
         }
+        .hidden {
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -71,6 +74,7 @@
                 <div class="flex border-b border-gray-700 max-w-4xl mx-auto mb-6">
                     <div id="tab-urls" class="tab tab-active" onclick="showTab('urls')">From URLs</div>
                     <div id="tab-prewritten" class="tab" onclick="showTab('prewritten')">Pre-written</div>
+                    <div id="tab-rewrite" class="tab" onclick="showTab('rewrite')">Rewrite Only</div>
                     <div id="tab-sheets" class="tab" onclick="showTab('sheets')">From Google Sheet</div>
                     <div id="tab-settings" class="tab" onclick="showTab('settings')">Settings</div>
                 </div>
@@ -83,6 +87,11 @@
                 <div id="content-prewritten" class="tab-content max-w-4xl mx-auto space-y-6">
                     <div class="info-banner warning">
                         <p class="text-sm"><strong>📄 Pre-written Articles:</strong> These will be scored for informational purposes but submitted as-is without modification.</p>
+                    </div>
+                </div>
+                <div id="content-rewrite" class="tab-content max-w-4xl mx-auto space-y-6">
+                    <div class="info-banner success">
+                        <p class="text-sm"><strong>✍️ Rewrite Only:</strong> Fetch and rewrite articles without publishing. View the refined article and its score in real-time.</p>
                     </div>
                 </div>
                 <div id="content-sheets" class="tab-content max-w-4xl mx-auto space-y-6">
@@ -245,6 +254,112 @@
             runWorkflow(config);
         }
 
+        async function rewriteArticle() {
+            const url = document.getElementById('rewrite_url').value;
+            if (!url) {
+                alert('Please enter a URL.');
+                return;
+            }
+            
+            const button = event.target;
+            button.disabled = true;
+            button.innerHTML = '<div class="animate-spin rounded-full h-5 w-5 border-b-2 border-white mx-auto"></div>';
+            
+            // Hide results initially
+            document.getElementById('rewrite-results').classList.add('hidden');
+            
+            try {
+                const response = await fetch('/rewrite', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        input: {
+                            source_url: url,
+                            openai_api_key: document.getElementById('openai_api_key').value
+                        }
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) throw new Error(data.detail || data.error || 'An error occurred');
+                
+                console.log('Received data:', data);  // Debug logging
+                
+                // Show results
+                document.getElementById('rewrite-results').classList.remove('hidden');
+                
+                // Display scores with proper fallbacks
+                const score = parseFloat(data.score) || 0.0;
+                const componentScores = data.component_scores || {};
+                
+                document.getElementById('score-value').textContent = score.toFixed(2);
+                document.getElementById('lead-score').textContent = (parseFloat(componentScores.lead_quality) || 0.0).toFixed(2);
+                document.getElementById('structure-score').textContent = (parseFloat(componentScores.structure) || 0.0).toFixed(2);
+                document.getElementById('vocab-score').textContent = (parseFloat(componentScores.vocabulary) || 0.0).toFixed(2);
+                document.getElementById('tone-score').textContent = (parseFloat(componentScores.tone) || 0.0).toFixed(2);
+                document.getElementById('attr-score').textContent = (parseFloat(componentScores.attribution) || 0.0).toFixed(2);
+                
+                // Color code overall score
+                const scoreEl = document.getElementById('score-value');
+                if (score >= 0.85) {
+                    scoreEl.className = 'text-2xl font-bold text-green-400';
+                } else if (score >= 0.80) {
+                    scoreEl.className = 'text-2xl font-bold text-blue-400';
+                } else if (score >= 0.70) {
+                    scoreEl.className = 'text-2xl font-bold text-yellow-400';
+                } else {
+                    scoreEl.className = 'text-2xl font-bold text-red-400';
+                }
+                
+                // Display article with proper formatting
+                let article = data.article || 'No article content';
+                
+                // Clean up any remaining feedback markers
+                article = article.replace(/═+/g, '');
+                article = article.replace(/─+/g, '');
+                article = article.replace(/▼+/g, '');
+                article = article.replace(/✅+/g, '');
+                
+                // Ensure proper paragraph spacing
+                article = article.split('\n\n').map(p => p.trim()).filter(p => p).join('\n\n');
+                
+                document.getElementById('rewritten-article').value = article;
+                
+                // Display feedback
+                const feedback = data.feedback || 'No feedback available';
+                document.getElementById('rewrite-feedback').value = feedback;
+                
+                // Show iteration info if available
+                if (data.iterations) {
+                    console.log(`Article refined through ${data.iterations} iterations`);
+                }
+                
+                // Scroll to results
+                document.getElementById('rewrite-results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+                
+            } catch (error) {
+                console.error(`Error rewriting article:`, error);
+                alert(`Error: ${error.message}\n\nCheck the console logs for more details.`);
+            } finally {
+                button.disabled = false;
+                button.innerHTML = '✍️ Rewrite Article';
+            }
+        }
+
+        function copyArticle() {
+            const article = document.getElementById('rewritten-article');
+            article.select();
+            document.execCommand('copy');
+            
+            const button = event.target;
+            const originalText = button.innerHTML;
+            button.innerHTML = '✅ Copied!';
+            setTimeout(() => {
+                button.innerHTML = originalText;
+            }, 2000);
+        }
+
         function setBotRunning(isRunning, button) {
             if (button) {
                 button.disabled = isRunning;
@@ -287,11 +402,13 @@
         function initializeUI() {
             ui.tabs.urls = document.getElementById('tab-urls');
             ui.tabs.prewritten = document.getElementById('tab-prewritten');
+            ui.tabs.rewrite = document.getElementById('tab-rewrite');
             ui.tabs.sheets = document.getElementById('tab-sheets');
             ui.tabs.settings = document.getElementById('tab-settings');
 
             ui.tabContents.urls = document.getElementById('content-urls');
             ui.tabContents.prewritten = document.getElementById('content-prewritten');
+            ui.tabContents.rewrite = document.getElementById('content-rewrite');
             ui.tabContents.sheets = document.getElementById('content-sheets');
             ui.tabContents.settings = document.getElementById('content-settings');
 
@@ -308,6 +425,57 @@
                 prewrittenHTML += createPrewrittenInput(i);
             }
             ui.tabContents.prewritten.innerHTML += prewrittenHTML;
+
+            // Rewrite Only Tab
+            ui.tabContents.rewrite.innerHTML += `
+                <div class="bg-gray-800 p-6 rounded-lg">
+                    <h3 class="text-xl font-semibold text-white mb-4">Rewrite Article (No Publishing)</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="rewrite_url" class="label">Source URL</label>
+                            <input type="text" id="rewrite_url" class="form-input" placeholder="https://example.com/article">
+                        </div>
+                        <button class="btn w-full" onclick="rewriteArticle()">✍️ Rewrite Article</button>
+                    </div>
+                    
+                    <!-- Results Section -->
+                    <div id="rewrite-results" class="mt-6 hidden">
+                        <div class="border-t border-gray-700 pt-6">
+                            <h4 class="text-lg font-semibold text-white mb-3">Results</h4>
+                            
+                            <!-- Score Display -->
+                            <div id="rewrite-score" class="mb-4 p-4 rounded bg-gray-700">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-gray-300">Overall Score:</span>
+                                    <span id="score-value" class="text-2xl font-bold text-blue-400">-</span>
+                                </div>
+                                <div class="mt-2 text-sm text-gray-400">
+                                    <div class="flex justify-between"><span>Lead Quality:</span><span id="lead-score">-</span></div>
+                                    <div class="flex justify-between"><span>Structure:</span><span id="structure-score">-</span></div>
+                                    <div class="flex justify-between"><span>Vocabulary:</span><span id="vocab-score">-</span></div>
+                                    <div class="flex justify-between"><span>Tone:</span><span id="tone-score">-</span></div>
+                                    <div class="flex justify-between"><span>Attribution:</span><span id="attr-score">-</span></div>
+                                </div>
+                            </div>
+                            
+                            <!-- Rewritten Article -->
+                            <div>
+                                <div class="flex justify-between items-center mb-2">
+                                    <label class="label">Rewritten Article</label>
+                                    <button class="btn btn-secondary" onclick="copyArticle()">📋 Copy to Clipboard</button>
+                                </div>
+                                <textarea id="rewritten-article" class="form-textarea" rows="20" readonly></textarea>
+                            </div>
+                            
+                            <!-- Feedback -->
+                            <div class="mt-4">
+                                <label class="label">Style Guru Feedback</label>
+                                <textarea id="rewrite-feedback" class="form-textarea" rows="10" readonly></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
 
             // Google Sheets Tab
             ui.tabContents.sheets.innerHTML = `

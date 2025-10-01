@@ -131,6 +131,54 @@ async def invoke_run(request: dict):
     
     return {"output": "Orchestrator process started. Monitor logs for progress."}
 
+# Add this to your server.py file after the /invoke endpoint
+
+@app.post("/rewrite", summary="Rewrite an article without publishing")
+async def rewrite_article(request: dict):
+    """
+    Rewrites an article from a URL using Style Guru without publishing to CMS.
+    Returns the rewritten article, score, and feedback.
+    """
+    config_data = request.get("input", {})
+    
+    logging.info("=" * 70)
+    logging.info("REWRITE REQUEST RECEIVED")
+    logging.info("=" * 70)
+    logging.info(f"Source URL: {config_data.get('source_url')}")
+    logging.info("=" * 70)
+    
+    try:
+        llm = ChatOpenAI(
+            model_name="gpt-4o", 
+            temperature=0.5, 
+            api_key=config_data.get('openai_api_key')
+        )
+        orchestrator = OrchestratorAgent(llm=llm, use_style_guru=True)
+        
+        result = orchestrator.rewrite_only(config_data)
+        
+        if result.get("success"):
+            return JSONResponse({
+                "article": result["article"],
+                "score": result["score"],
+                "component_scores": result["component_scores"],
+                "feedback": result["feedback"]
+            })
+        else:
+            return JSONResponse(
+                status_code=500,
+                content={"error": result.get("error", "Rewrite failed")}
+            )
+            
+    except Exception as e:
+        logging.error(f"🔥 Rewrite failed: {e}", exc_info=True)
+        return JSONResponse(
+            status_code=500,
+            content={"error": f"Rewrite failed: {str(e)}"}
+        )
+
+
+
 # --- Style Guru Update Endpoint ---
 def update_style_guru_background(num_articles: int = 100):
     """Background task to update the style guru framework."""

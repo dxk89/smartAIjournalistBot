@@ -2,92 +2,127 @@
   "framework": {
     "core_principles": [
       "Maintain objectivity and neutrality in reporting.",
-      "Use precise and accurate data to support claims.",
-      "Incorporate expert opinions and direct quotes for authority.",
-      "Provide historical context to enhance understanding.",
-      "Focus on clarity and conciseness in writing.",
-      "Ensure each paragraph addresses a single idea or aspect.",
-      "Use transitions to maintain a logical flow of information.",
-      "Avoid speculation and unverified claims.",
-      "Present balanced perspectives on controversial issues.",
-      "Adhere to formal and analytical tone throughout the article."
+      "Use precise and clear language to enhance readability.",
+      "Incorporate expert opinions and analysis to add depth.",
+      "Provide historical context to frame current events.",
+      "Balance quantitative data with qualitative insights.",
+      "Use concrete examples to illustrate points.",
+      "Highlight contrasts or contradictions to provide clarity.",
+      "Employ cause-and-effect reasoning to explain developments.",
+      "Ensure all data is sourced from credible organizations.",
+      "Integrate quotes seamlessly to support the narrative."
     ],
     "sentence_patterns": [
-      "Subject + active verb + object (e.g., 'The government announced new reforms.')",
-      "Subject + passive verb + by agent (e.g., 'The report was released by the agency.')",
-      "Subject + verb + prepositional phrase (e.g., 'The economy grew by 3% last quarter.')",
-      "Subject + verb + that + clause (e.g., 'The minister stated that the policy would change.')",
-      "Introductory phrase + subject + verb + object (e.g., 'Following the meeting, the committee decided on new measures.')"
+      {
+        "pattern": "Subject + active verb + object",
+        "example": "The government announced new economic reforms."
+      },
+      {
+        "pattern": "Subject + verb + prepositional phrase",
+        "example": "The report was released by the Ministry of Finance."
+      },
+      {
+        "pattern": "Introductory clause + main clause",
+        "example": "Despite economic challenges, the country achieved growth."
+      },
+      {
+        "pattern": "Subject + verb + direct object + indirect object",
+        "example": "The company offered investors a detailed report."
+      },
+      {
+        "pattern": "Complex sentences with dependent and independent clauses",
+        "example": "While the economy is growing, unemployment remains high."
+      }
     ],
     "vocabulary_guide": {
       "always_use": [
-        "comprehensive",
-        "sustainable",
-        "analytical",
-        "objective",
-        "informative"
+        "economic diversification",
+        "bilateral trade",
+        "financial constraints",
+        "regulatory approval",
+        "political struggles"
       ],
       "often_use": [
-        "expansion",
-        "deficit",
+        "indicate",
         "highlight",
-        "confirm",
-        "projected"
+        "report",
+        "project",
+        "forecast"
       ],
       "never_use": [
-        "rumors",
-        "gossip",
-        "unsubstantiated",
-        "speculated",
-        "claimed"
+        "slang",
+        "colloquialisms",
+        "overly technical jargon without explanation",
+        "emotional language"
       ]
     },
     "lead_formula": [
-      "Identify the main subject or entity involved.",
-      "State the key action or decision taken.",
-      "Provide context or background information.",
-      "Highlight the significance or potential impact.",
-      "Example: 'The Central Bank announced a new interest rate policy, aiming to curb inflation and stabilize the economy.'"
+      "Start with a significant event or decision.",
+      "Introduce a key figure or entity involved.",
+      "Present a problem or challenge faced.",
+      "Highlight a recent development or change in policy.",
+      "Set the scene with geographical or political context."
     ],
     "attribution_rules": [
-      "Use direct quotes with full titles and affiliations for experts and officials.",
-      "Cite sources with phrases like 'according to', 'reported by', or 'as stated by'.",
-      "Ensure clarity by providing context for the source's relevance.",
-      "Example: 'Economist John Doe, from the University of Economics, stated, “The new policy will likely boost growth.”'"
+      "Use phrases like 'according to', 'as reported by', and 'said'.",
+      "Cite sources with specific references to organizations or individuals.",
+      "Include the speaker's name and position for direct quotes.",
+      "Provide context for the authority of the source.",
+      "Example: 'According to the Ministry of Energy, the new policy will...'"
     ],
     "tone_guidelines": [
-      "Maintain a formal and analytical tone throughout.",
-      "Avoid emotive language and personal opinions.",
-      "Focus on delivering factual and balanced information.",
-      "Use cautious language when discussing projections or forecasts."
+      "Maintain an objective and neutral tone throughout.",
+      "Be informative and analytical, avoiding emotional language.",
+      "Use formal language appropriate for a professional audience.",
+      "Ensure the tone is factual and cautious when necessary."
     ],
     "structure_template": [
-      "Lead: Introduce the main topic and its significance.",
-      "Background: Provide historical context and relevant details.",
-      "Analysis: Discuss implications, expert opinions, and data.",
-      "Conclusion: Summarize key points and potential future developments."
+      "Lead: Use the lead formula to introduce the main topic.",
+      "Body: Develop the story with supporting details, data, and quotes.",
+      "Analysis: Provide expert opinions and historical context.",
+      "Conclusion: Summarize key points and suggest implications or future developments."
     ],
     "style_nuances": [
-      "Integrate quotes seamlessly into the narrative.",
-      "Use precise figures and percentages for data presentation.",
-      "Balance quantitative data with qualitative insights.",
-      "Highlight contrasts and comparisons to provide depth."
+      "Use transitions like 'However', 'Meanwhile', and 'Furthermore' to maintain flow.",
+      "Present numbers and statistics with precision and context.",
+      "Integrate quotes to provide authority and perspective.",
+      "Highlight trends and contrasts to enhance understanding."
     ],
     "common_mistakes": [
-      "Using vague or unverified information.",
-      "Failing to attribute sources correctly.",
-      "Overloading paragraphs with multiple ideas.",
-      "Neglecting to provide context for data or quotes."
+      "Using slang or colloquial language.",
+      "Failing to provide context for data or quotes.",
+      "Overusing technical jargon without explanation.",
+      "Allowing bias or emotional language to influence tone."
     ],
     "quality_checklist": [
       "Verify all data and statistics for accuracy.",
-      "Ensure all sources are properly cited and attributed.",
-      "Check for logical flow and coherence between paragraphs.",
-      "Review for adherence to tone and style guidelines.",
-      "Proofread for grammatical and typographical errors."
+      "Ensure all sources are credible and properly cited.",
+      "Check for clarity and conciseness in language.",
+      "Review for objectivity and neutrality in tone.",
+      "Confirm that quotes are integrated and attributed correctly."
     ]
   },
   "example_articles": [
+    {
+      "title": "EU presses ahead with December signing of divisive Mercosur deal",
+      "opening_paragraph": "The European Commission is gearing up to sign its contentious trade agreement with South American bloc Mercosur on December 5 in Brazil, according to four EU diplomats who spoke to Politico, possibly sealing the fate of an accord that has languished in negotiations for more than a quarter-century.The proposed timeline would see EU ambassadors deliberate on the agreement on December 3 before a formal signing ceremony during a planned EU-Mercosur summit in Brazil two days later, the diplomats told"
+    },
+    {
+      "title": "September PMI confirms Turkish manufacturers have struggled with rough times for year and half",
+      "opening_paragraph": "Turkish manufacturers continued to suffer a challenging demand environment in September, according to the Istanbul Chamber of Industry Türkiye Manufacturing Purchasing Managers’ Index (PMI) released on October 1 by S&P Global.Business conditions in Turkey’s manufacturing industry have now moderated on a monthly basis for a year-and-a-half.The headline PMI posted 46.7 in September, down from 47.3 in August (any figure below 50.9 denotes a deterioration).The September data indicates further slowdo"
+    },
+    {
+      "title": "Mexican tycoon Carlos Slim invests $2bn in Veracruz oil field as Pemex drowns in debt",
+      "opening_paragraph": "Mexican businessman Carlos Slim, the country's richest man, has expanded his involvement in the country's hydrocarbons sector through a new drilling agreement with state-owned oil company Petróleos Mexicanos (Pemex). His conglomerate Grupo Carso confirmed it will invest up to $1.991bn in the development of 32 wells at the Ixachi onshore field in Veracruz.The contract, signed through Carso subsidiaries GSM Bronco and MX DLTA NRG 1, covers a three-year programme for drilling and completion. Accord"
+    },
+    {
+      "title": "NG.Cash wins Brazil credit licence",
+      "opening_paragraph": "Brazilian neobank NG.Cash has secured regulatory approval to operate as a direct credit company after acquiring BizCapital’s licence, the firm said in a press release.The Central Bank concluded the authorisation process this year, finalising a transaction that began in 2023. The entity is now formally registered as NG.Cash Sociedade de Crédito Direto S.A.Launched in 2018 as Neagle Bank and renamed in 2021, NG.Cash focuses on Generation Z customers. Its platform provides a digital account, prepai"
+    },
+    {
+      "title": "Somalia to launch first oil drilling campaign within months, after decades of exploration, says president",
+      "opening_paragraph": "Somalia’s President Hassan Sheikh Mohamud has announced the launch of the country’s first-ever oil drilling campaign in the coming months, local outlet Shabelle Media Network reported.Mohamud said the exploration campaign represented a vital step in Somalia’s efforts to unlock its potentially vast hydrocarbon resources and lay the foundations for long-term economic growth, signalling the start of a new chapter for the Horn of Africa country. “For the first time, Somalia will begin drilling a wel"
+    },
     {
       "title": "Slovenia confronts its ageing challenge with contested pension reform",
       "opening_paragraph": "The battle over the comprehensive reform of Slovenia’s pension system is shaping up to be one of the small country’s defining political struggles of the decade.The overhaul of the pension system in Slovenia, an EU country with a population of slightly over 2mn, has been discussed for years as a response to the country’s ageing population. However, the reform, hailed by the government as a long-overdue step towards securing sustainable public finances, is seen by critics as an unfair burden on wo"
@@ -102,31 +137,11 @@
     },
     {
       "title": "Milei to meet Trump at White House as Argentina seeks $20bn swap before election",
-      "opening_paragraph": "Argentine President Javier Milei will meet US President Donald Trump at the White House on October 14, less than two weeks before congressional elections that could determine the fate of the libertarian leader's economic reforms.The bilateral meeting, confirmed by Argentina's foreign ministry on September 30, represents the latest sign of deepening ties between the ideological allies as Washington deploys an array of financial instruments to support Buenos Aires's beleaguered economy.Milei annou"
+      "opening_paragraph": "Argentine President Javier Milei will meet US President Donald Trump at the White House on October 14, less than two weeks before congressional elections that could determine the fate of the libertarian leader's economic reforms.The bilateral meeting, confirmed by Argentina's foreign ministry on September 30, follows a previous one on the sidelines of the UNGA last week and represents the latest sign of deepening ties between the ideological allies as Washington deploys an array of financial ins"
     },
     {
       "title": "Landmark US–Africa trade deal expires, threatening thousands of jobs",
       "opening_paragraph": "The expiration of the African Growth and Opportunity Act (AGOA) on September 30 has left exporters across sub-Saharan Africa bracing for sharp losses, as Washington failed to extend the long-running trade preference scheme. Without renewal, African governments and companies warn they will be forced to seek alternative markets or negotiate bilateral deals to preserve access.Introduced in 2000 under President Bill Clinton, the programme gave countries duty-free access to more than 6,800 tariff lin"
-    },
-    {
-      "title": "Russian manufacturing PMI slump deepens in September as new orders and exports tumble",
-      "opening_paragraph": "Russia’s manufacturing sector deteriorated further in September, marking the fourth consecutive month of contraction, as both domestic and foreign demand weakened, S&P Global reported on September 30. (chart)The seasonally adjusted Russia Manufacturing Purchasing Managers’ Index (PMI) fell to 48.2 in September from 48.7 in August, indicating a sharper downturn in operating conditions. The decline in new orders accelerated, with firms citing financial strain and customer hesitancy as key factors."
-    },
-    {
-      "title": "COMMENT: How Kyrgyzstan is becoming a Chinese province",
-      "opening_paragraph": "Central Asia lies at the crossroads of major geopolitical and regional interests. Until recently, the countries of the region managed to balance between Russia, China, Turkey, and the collective West. However, while Kazakhstan and Uzbekistan have been successful in their foreign policy manoeuvres, Kyrgyzstan is rapidly becoming an appendage of China.Until recently, Kyrgyzstan viewed China with suspicion. In late 2018 and early 2019, several anti-China protests took place in Bishkek. These protes"
-    },
-    {
-      "title": "Bulgaria aims to become regional leader in small modular reactors, says energy minister",
-      "opening_paragraph": "Bulgaria intends to position itself as a regional leader in small modular reactors (SMRs), leveraging its favourable geographical location and diverse energy mix, Minister of Energy Zhecho Stankov said at a round table on energy transition and sustainable development in Sofia, the Ministry of Energy reported on September 30. Stankov said that Bulgaria has strong potential to become one of the first countries in Southeastern Europe to explore and deploy SMRs. He noted that while the technology wa"
-    },
-    {
-      "title": "Moldova’s economy turns to growth in Q2, helped by investments",
-      "opening_paragraph": "Moldova’s GDP increased by 1.1% y/y in Q2 (chart), driven by the higher volume of construction and the utilities sector, after a three-quarter recession prompted by the weak harvest last year, according to data published by the statistics bureau BNS. The seasonally adjusted GDP increased by 1.6% q/q and marked a new record, rising by 0.5% above the levels seen in the first half of 2024 before the 2.7% q/q plunge seen in Q3 2024.The exit from recession was driven by robust investments, partly fin"
-    },
-    {
-      "title": "Iraq resumes Kurdish crude exports with first loading at Ceyhan port",
-      "opening_paragraph": "Oil exports from Iraq’s semi-autonomous Kurdistan region have restarted after more than two years of suspension, following a breakthrough deal between Baghdad, the Kurdish regional government and international producers, as reported by Al Arabiya News on October 1. The return of Kurdish oil to global markets is expected to ease supply concerns and provide much-needed revenue for the KRG, which has faced severe financial pressure since the suspension of exports. It also strengthens Iraq’s positio"
     }
   ],
   "version": "2.0",

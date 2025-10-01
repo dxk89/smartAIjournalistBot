@@ -98,11 +98,29 @@ def post_article_to_cms(article_json_string: str, username: str, password: str) 
     first_sentence = body_text.split('.')[0] + '.' if '.' in body_text else body_text
 
     hashtags = article_content.get("hashtags", [])
-    social_media_callout = f"{first_sentence} {' '.join(hashtags)}"
+    
+    # FIXED: Ensure character limits
+    # Website callout - keep it short (first sentence truncated to 200 chars)
+    website_callout = first_sentence[:200] if len(first_sentence) > 200 else first_sentence
+    
+    # Social media callout - must be under 250 chars including hashtags
+    hashtags_str = ' '.join(hashtags[:3])  # Limit to 3 hashtags
+    social_base = first_sentence[:180] if len(first_sentence) > 180 else first_sentence
+    social_media_callout = f"{social_base} {hashtags_str}"
+    
+    # Ensure social media callout is under 250 chars
+    if len(social_media_callout) > 250:
+        # Trim the sentence part further
+        available_chars = 250 - len(hashtags_str) - 1
+        social_base = first_sentence[:available_chars]
+        social_media_callout = f"{social_base} {hashtags_str}"
+    
+    log(f"   Website callout length: {len(website_callout)} chars")
+    log(f"   Social media callout length: {len(social_media_callout)} chars")
 
     # Set proper values
     article_content["weekly_title_value"] = title
-    article_content["website_callout_value"] = first_sentence
+    article_content["website_callout_value"] = website_callout
     article_content["social_media_callout_value"] = social_media_callout
     article_content["byline_value"] = username  # FORCE byline to be username
     
@@ -342,10 +360,90 @@ def post_article_to_cms(article_json_string: str, username: str, password: str) 
                 except Exception as e:
                     log(f"      ⚠️ Failed checkbox: {str(e)[:30]}")
 
+        # --- DEBUG: Find text input field IDs ---
+        log("🔍 Searching for text input field IDs...")
+        field_search = driver.execute_script("""
+            var fields = {
+                byline: null,
+                abstract: null,
+                seo_description: null,
+                seo_keywords: null,
+                google_news_keywords: null,
+                hashtags: null
+            };
+            
+            var allInputs = document.querySelectorAll('input[type="text"], textarea');
+            
+            for (var i = 0; i < allInputs.length; i++) {
+                var el = allInputs[i];
+                var id = el.id || '';
+                var name = el.name || '';
+                
+                if (id.includes('byline') || name.includes('byline')) {
+                    fields.byline = id;
+                }
+                if (id.includes('abstract') || name.includes('abstract')) {
+                    fields.abstract = id;
+                }
+                if (id.includes('seo-description') || name.includes('seo_description')) {
+                    fields.seo_description = id;
+                }
+                if (id.includes('seo-keywords') || name.includes('seo_keywords')) {
+                    fields.seo_keywords = id;
+                }
+                if (id.includes('google-news-keywords') || name.includes('google_news_keywords')) {
+                    fields.google_news_keywords = id;
+                }
+                if (id.includes('hashtag') || name.includes('hashtag')) {
+                    fields.hashtags = id;
+                }
+            }
+            
+            return fields;
+        """)
+        
+        log("   Text input field IDs found:")
+        for field_name, field_id in field_search.items():
+            if field_id:
+                log(f"      ✅ {field_name}: {field_id}")
+            else:
+                log(f"      ❌ {field_name}: NOT FOUND")
+        
+        # Update field IDs if found
+        if field_search.get('byline'):
+            byline_id = field_search['byline']
+        else:
+            byline_id = "edit-field-byline-und-0-value"  # fallback
+            
+        if field_search.get('abstract'):
+            abstract_id = field_search['abstract']
+        else:
+            abstract_id = "edit-field-abstract-und-0-value"  # fallback
+            
+        if field_search.get('seo_description'):
+            seo_desc_id = field_search['seo_description']
+        else:
+            seo_desc_id = "edit-field-seo-description-und-0-value"  # fallback
+            
+        if field_search.get('seo_keywords'):
+            seo_keywords_id = field_search['seo_keywords']
+        else:
+            seo_keywords_id = "edit-field-seo-keywords-und-0-value"  # fallback
+            
+        if field_search.get('google_news_keywords'):
+            google_news_id = field_search['google_news_keywords']
+        else:
+            google_news_id = "edit-field-google-news-keywords-und-0-value"  # fallback
+            
+        if field_search.get('hashtags'):
+            hashtags_id = field_search['hashtags']
+        else:
+            hashtags_id = "edit-field-hashtags-und-0-value"  # fallback
+
         # --- FILL BASIC FIELDS ---
         log("Filling basic fields...")
         safe_fill("edit-title", title, "Title")
-        safe_fill("edit-field-byline-und-0-value", username, "Byline")  # FORCE username as byline
+        safe_fill(byline_id, username, "Byline")
         
         # Date field
         try:
@@ -374,15 +472,15 @@ def post_article_to_cms(article_json_string: str, username: str, password: str) 
         safe_fill("edit-field-weekly-title-und-0-value", article_content.get('weekly_title_value'), "Weekly Title")
         safe_fill("edit-field-website-callout-und-0-value", article_content.get('website_callout_value'), "Website Callout")
         safe_fill("edit-field-social-media-callout-und-0-value", article_content.get('social_media_callout_value'), "Social Media Callout")
-        safe_fill("edit-field-abstract-und-0-value", article_content.get('abstract_value'), "Abstract")
+        safe_fill(abstract_id, article_content.get('abstract_value'), "Abstract")
 
         # --- SEO FIELDS ---
         log("Filling SEO fields...")
         safe_fill("edit-field-seo-title-und-0-value", article_content.get('seo_title_value'), "SEO Title")
-        safe_fill("edit-field-seo-description-und-0-value", article_content.get('seo_description'), "SEO Description")
-        safe_fill("edit-field-seo-keywords-und-0-value", article_content.get('seo_keywords'), "SEO Keywords")
-        safe_fill("edit-field-google-news-keywords-und-0-value", article_content.get('google_news_keywords_value'), "Google News Keywords")
-        safe_fill("edit-field-hashtags-und-0-value", " ".join(hashtags), "Hashtags")
+        safe_fill(seo_desc_id, article_content.get('seo_description'), "SEO Description")
+        safe_fill(seo_keywords_id, article_content.get('seo_keywords'), "SEO Keywords")
+        safe_fill(google_news_id, article_content.get('google_news_keywords_value'), "Google News Keywords")
+        safe_fill(hashtags_id, " ".join(hashtags), "Hashtags")
 
         # --- CHECKBOXES ---
         log("Setting publications...")

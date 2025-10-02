@@ -1,4 +1,5 @@
-# File: my_framework/app/server.py
+# Fixed logging section for server.py
+# Replace the logging setup section in your server.py with this code
 
 import sys
 import os
@@ -8,7 +9,7 @@ import logging
 import queue
 import asyncio
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, WebSocket, Request, BackgroundTasks
+from fastapi import FastAPI, HTTPException, WebSocket, Request, BackgroundTasks, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 
@@ -36,37 +37,101 @@ except ImportError as e:
     logging.warning(f"Style Guru components not available: {e}")
     STYLE_GURU_AVAILABLE = False
 
-# --- Logging Setup ---
+# --- FIXED LOGGING SETUP ---
 class QueueLogHandler(logging.Handler):
+    """Custom log handler that puts log messages in a queue."""
     def __init__(self, q):
         super().__init__()
         self.queue = q
 
     def emit(self, record):
-        self.queue.put(self.format(record))
+        try:
+            msg = self.format(record)
+            self.queue.put(msg)
+        except Exception:
+            self.handleError(record)
 
-log_queue = queue.Queue()
+# Create log queue
+log_queue = queue.Queue(maxsize=1000)  # Limit queue size to prevent memory issues
+
+# Create custom log handler
 log_handler = QueueLogHandler(log_queue)
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
 formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+log_handler.setFormatter(formatter)
+log_handler.setLevel(logging.INFO)
 
-if not logger.handlers:
-    console_handler = logging.StreamHandler()
-    console_handler.setFormatter(formatter)
-    logger.addHandler(console_handler)
-    log_handler.setFormatter(formatter)
-    logger.addHandler(log_handler)
+# Configure root logger
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[]  # Start with empty handlers
+)
 
+# Get root logger
+root_logger = logging.getLogger()
+root_logger.setLevel(logging.INFO)
+
+# Clear any existing handlers
+root_logger.handlers.clear()
+
+# Add console handler
+console_handler = logging.StreamHandler(sys.stdout)  # Explicitly use stdout
+console_handler.setFormatter(formatter)
+console_handler.setLevel(logging.INFO)
+root_logger.addHandler(console_handler)
+
+# Add queue handler for WebSocket
+root_logger.addHandler(log_handler)
+
+# Also configure specific module loggers to ensure they use our handlers
+for module_name in ['my_framework', 'my_framework.agents', 'my_framework.tools']:
+    module_logger = logging.getLogger(module_name)
+    module_logger.setLevel(logging.INFO)
+    module_logger.propagate = True  # Ensure propagation to root logger
+
+# Active WebSocket connections list
 active_connections: list[WebSocket] = []
+connections_lock = threading.Lock()  # Thread-safe access to connections list
 
 async def log_sender():
+    """Background task to send logs to WebSocket clients."""
+    logging.info("Log sender task started")
+    
     while True:
         try:
-            log_entry = log_queue.get_nowait()
-            for connection in active_connections:
-                await connection.send_text(log_entry)
-        except queue.Empty:
+            # Process all available log messages
+            messages_to_send = []
+            while not log_queue.empty() and len(messages_to_send) < 10:
+                try:
+                    msg = log_queue.get_nowait()
+                    messages_to_send.append(msg)
+                except queue.Empty:
+                    break
+            
+            # Send messages to all connected clients
+            if messages_to_send and active_connections:
+                with connections_lock:
+                    disconnected = []
+                    for connection in active_connections[:]:  # Work on a copy
+                        try:
+                            for msg in messages_to_send:
+                                await connection.send_text(msg)
+                        except Exception as e:
+                            # Mark connection for removal
+                            disconnected.append(connection)
+                            logging.debug(f"WebSocket connection lost: {e}")
+                    
+                    # Remove disconnected clients
+                    for conn in disconnected:
+                        if conn in active_connections:
+                            active_connections.remove(conn)
+                            logging.info(f"Removed disconnected WebSocket client. Active connections: {len(active_connections)}")
+            
+            # Small delay to prevent CPU spinning
+            await asyncio.sleep(0.05)
+            
+        except Exception as e:
+            logging.error(f"Error in log_sender: {e}", exc_info=True)
             await asyncio.sleep(0.1)
 
 # --- App Setup ---
@@ -78,8 +143,13 @@ style_guru_updating = False
 
 @app.on_event("startup")
 async def startup_event():
+    """Start background tasks on app startup."""
+    # Start log sender task
     asyncio.create_task(log_sender())
-    logging.info("Application startup complete.")
+    logging.info("=" * 70)
+    logging.info("APPLICATION STARTUP COMPLETE")
+    logging.info("=" * 70)
+    logging.info("Server is ready to accept connections")
     
     # Check if style framework exists
     if os.path.exists("intellinews_style_framework.json"):
@@ -87,324 +157,77 @@ async def startup_event():
     else:
         logging.warning("⚠️ Style Guru framework not found - run setup or use the UI to create it")
 
-# --- Orchestrator Workflow ---
-def orchestrator_workflow(config_data: dict):
-    logging.info("=" * 70)
-    logging.info("🚀 ORCHESTRATOR WORKFLOW STARTING")
-    logging.info("=" * 70)
-    logging.info(f"User Goal: {config_data.get('user_goal', 'N/A')}")
-    logging.info(f"Source URL: {config_data.get('source_url', 'N/A')}")
-    logging.info(f"Username: {config_data.get('username', 'N/A')}")
-    logging.info("=" * 70)
-    
-    llm = ChatOpenAI(model_name="gpt-4o", temperature=0.5, api_key=config_data.get('openai_api_key'))
-    
-    # Check if user wants to disable style guru for this run
-    use_style_guru = config_data.get('use_style_guru', True)
-    
-    orchestrator = OrchestratorAgent(llm=llm, use_style_guru=use_style_guru)
-    user_goal = config_data.get("user_goal", "No goal provided.")
-    initial_context = {**config_data, "input": user_goal}
-    
-    try:
-        final_result = orchestrator.invoke(initial_context)
-        logging.info("=" * 70)
-        logging.info(f"✅ WORKFLOW COMPLETE")
-        logging.info("=" * 70)
-    except Exception as e:
-        logging.error(f"🔥 Orchestrator workflow failed: {e}", exc_info=True)
-
-@app.post("/invoke", summary="Run the multi-agent journalist workflow")
-async def invoke_run(request: dict):
-    config_data = request.get("input", {})
-    
-    # Log what we received
-    logging.info("=" * 70)
-    logging.info("API REQUEST RECEIVED")
-    logging.info("=" * 70)
-    logging.info(f"Full request data: {json.dumps(config_data, indent=2)}")
-    logging.info("=" * 70)
-    
-    thread = threading.Thread(target=orchestrator_workflow, args=(config_data,))
-    thread.daemon = True
-    thread.start()
-    
-    return {"output": "Orchestrator process started. Monitor logs for progress."}
-
-# Add this to your server.py file after the /invoke endpoint
-
-@app.post("/rewrite", summary="Rewrite an article without publishing")
-async def rewrite_article(request: dict):
-    """
-    Rewrites an article from a URL using Style Guru without publishing to CMS.
-    Returns the rewritten article, score, and feedback.
-    """
-    config_data = request.get("input", {})
-    
-    logging.info("=" * 70)
-    logging.info("REWRITE REQUEST RECEIVED")
-    logging.info("=" * 70)
-    logging.info(f"Source URL: {config_data.get('source_url')}")
-    logging.info("=" * 70)
-    
-    try:
-        llm = ChatOpenAI(
-            model_name="gpt-4o", 
-            temperature=0.5, 
-            api_key=config_data.get('openai_api_key')
-        )
-        orchestrator = OrchestratorAgent(llm=llm, use_style_guru=True)
-        
-        result = orchestrator.rewrite_only(config_data)
-        
-        if result.get("success"):
-            return JSONResponse({
-                "article": result["article"],
-                "score": result["score"],
-                "component_scores": result["component_scores"],
-                "feedback": result["feedback"]
-            })
-        else:
-            return JSONResponse(
-                status_code=500,
-                content={"error": result.get("error", "Rewrite failed")}
-            )
-            
-    except Exception as e:
-        logging.error(f"🔥 Rewrite failed: {e}", exc_info=True)
-        return JSONResponse(
-            status_code=500,
-            content={"error": f"Rewrite failed: {str(e)}"}
-        )
-
-
-
-# --- Style Guru Update Endpoint ---
-def update_style_guru_background(num_articles: int = 100):
-    """Background task to update the style guru framework."""
-    global style_guru_updating
-    style_guru_updating = True
-    
-    if not STYLE_GURU_AVAILABLE:
-        logging.error("❌ Style Guru components not available!")
-        style_guru_updating = False
-        return
-    
-    try:
-        logging.info(f"🎨 Starting Style Guru update with {num_articles} articles...")
-        
-        # Step 1: Deep analysis
-        logging.info("[1/3] Running deep analysis...")
-        framework = deep_style_analysis(max_articles=num_articles)
-        
-        if not framework:
-            logging.error("❌ Deep analysis failed!")
-            style_guru_updating = False
-            return
-        
-        logging.info("✅ Deep analysis complete!")
-        
-        # Step 2: Build dataset
-        logging.info("[2/3] Building training dataset...")
-        build_dataset(limit=num_articles)
-        logging.info("✅ Dataset built!")
-        
-        # Step 3: Train model
-        logging.info("[3/3] Training neural scorer...")
-        train_model()
-        logging.info("✅ Model trained!")
-        
-        logging.info("🎉 Style Guru update complete! Framework is now active.")
-        
-    except Exception as e:
-        logging.error(f"🔥 Style Guru update failed: {e}", exc_info=True)
-    finally:
-        style_guru_updating = False
-
-@app.post("/update-style-guru")
-async def update_style_guru(background_tasks: BackgroundTasks, num_articles: int = 100):
-    """
-    Triggers the Style Guru framework update.
-    This will analyze articles and train the scorer.
-    """
-    global style_guru_updating
-    
-    if not STYLE_GURU_AVAILABLE:
-        raise HTTPException(status_code=501, detail="Style Guru components not installed")
-    
-    if style_guru_updating:
-        raise HTTPException(status_code=409, detail="Style Guru update already in progress")
-    
-    logging.info(f"🎨 Style Guru update requested with {num_articles} articles")
-    background_tasks.add_task(update_style_guru_background, num_articles)
-    
-    return JSONResponse({
-        "output": f"Style Guru update started with {num_articles} articles. This will take 15-30 minutes. Monitor logs for progress.",
-        "status": "started"
-    })
-
-@app.get("/style-guru-status")
-async def style_guru_status():
-    """Check the status of the Style Guru system."""
-    framework_path = os.path.join(framework_dir, "intellinews_style_framework.json")
-    framework_exists = os.path.exists(framework_path)
-    
-    status = {
-        "framework_exists": framework_exists,
-        "updating": style_guru_updating,
-        "status": "updating" if style_guru_updating else ("active" if framework_exists else "not_configured"),
-        "style_guru_available": STYLE_GURU_AVAILABLE
-    }
-    
-    if framework_exists:
-        try:
-            with open(framework_path, "r") as f:
-                framework = json.load(f)
-                status["articles_analyzed"] = framework.get("articles_analyzed", "unknown")
-                status["version"] = framework.get("version", "unknown")
-        except:
-            pass
-    
-    return JSONResponse(status)
-
-# --- Style Guru Admin Endpoint ---
-@app.get("/style-guru", response_class=HTMLResponse)
-async def style_guru_admin(request: Request):
-    """Admin page for Style Guru management."""
-    framework_path = os.path.join(framework_dir, "intellinews_style_framework.json")
-    framework_exists = os.path.exists(framework_path)
-    
-    framework_info = {
-        "exists": framework_exists,
-        "articles_analyzed": "N/A",
-        "version": "N/A",
-        "last_updated": "Never"
-    }
-    
-    if framework_exists:
-        try:
-            with open(framework_path, "r") as f:
-                framework = json.load(f)
-                framework_info["articles_analyzed"] = framework.get("articles_analyzed", "unknown")
-                framework_info["version"] = framework.get("version", "unknown")
-            
-            # Get file modification time
-            import datetime
-            mtime = os.path.getmtime(framework_path)
-            framework_info["last_updated"] = datetime.datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M:%S")
-        except Exception as e:
-            logging.error(f"Error reading framework: {e}")
-    
-    return templates.TemplateResponse("styleguru.html", {
-        "request": request,
-        "framework_info": framework_info,
-        "updating": style_guru_updating
-    })
-
-@app.get("/", response_class=HTMLResponse)
-async def read_index(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
-
-@app.get("/test", response_class=HTMLResponse)
-async def test_page(request: Request):
-    """Simple test page to debug issues"""
-    return """<!DOCTYPE html>
-<html>
-<head>
-    <title>Simple Test</title>
-    <style>
-        body { font-family: Arial; padding: 20px; background: #1a1a1a; color: white; }
-        button { padding: 10px 20px; font-size: 16px; margin: 10px; cursor: pointer; }
-        #output { background: #2a2a2a; padding: 20px; margin-top: 20px; border: 1px solid #444; max-height: 400px; overflow-y: auto; }
-        .success { color: #0f0; }
-        .error { color: #f00; }
-    </style>
-</head>
-<body>
-    <h1>System Test Page</h1>
-    <p><a href="/" style="color: #4a9eff;">← Back to Main</a></p>
-    
-    <h2>1. Test WebSocket</h2>
-    <button onclick="testWebSocket()">Test WebSocket Connection</button>
-    <div id="ws-status"></div>
-    
-    <h2>2. Test API Status</h2>
-    <button onclick="testStatus()">Check Status</button>
-    <div id="status-result"></div>
-    
-    <h2>Live Logs</h2>
-    <div id="output"></div>
-    
-    <script>
-        let ws = null;
-        
-        function log(message, isError = false) {
-            const output = document.getElementById('output');
-            const div = document.createElement('div');
-            div.className = isError ? 'error' : 'success';
-            div.textContent = new Date().toLocaleTimeString() + ' - ' + message;
-            output.appendChild(div);
-            output.scrollTop = output.scrollHeight;
-        }
-        
-        function testWebSocket() {
-            const statusDiv = document.getElementById('ws-status');
-            statusDiv.innerHTML = 'Connecting...';
-            
-            try {
-                ws = new WebSocket('ws://' + window.location.host + '/ws');
-                
-                ws.onopen = () => {
-                    statusDiv.innerHTML = '<span class="success">✓ WebSocket CONNECTED!</span>';
-                    log('WebSocket connected successfully');
-                };
-                
-                ws.onerror = (error) => {
-                    statusDiv.innerHTML = '<span class="error">✗ WebSocket ERROR</span>';
-                    log('WebSocket error: ' + error, true);
-                };
-                
-                ws.onmessage = (event) => {
-                    log('Received: ' + event.data);
-                };
-                
-                ws.onclose = () => {
-                    log('WebSocket closed');
-                };
-            } catch (error) {
-                statusDiv.innerHTML = '<span class="error">✗ Exception: ' + error.message + '</span>';
-                log('Exception: ' + error.message, true);
-            }
-        }
-        
-        async function testStatus() {
-            const statusDiv = document.getElementById('status-result');
-            statusDiv.innerHTML = 'Checking...';
-            
-            try {
-                const response = await fetch('/style-guru-status');
-                const data = await response.json();
-                statusDiv.innerHTML = '<pre class="success">' + JSON.stringify(data, null, 2) + '</pre>';
-                log('Status check successful');
-            } catch (error) {
-                statusDiv.innerHTML = '<span class="error">✗ Error: ' + error.message + '</span>';
-                log('Status check failed: ' + error.message, true);
-            }
-        }
-        
-        window.onload = () => {
-            log('Page loaded. Click "Test WebSocket" to start.');
-        };
-    </script>
-</body>
-</html>"""
-
+# --- Improved WebSocket Endpoint ---
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
+    """WebSocket endpoint for real-time log streaming."""
     await websocket.accept()
-    active_connections.append(websocket)
+    
+    with connections_lock:
+        active_connections.append(websocket)
+    
+    logging.info(f"New WebSocket connection established. Total connections: {len(active_connections)}")
+    
+    # Send initial message to confirm connection
     try:
+        await websocket.send_text("Connected to log stream")
+    except Exception as e:
+        logging.error(f"Failed to send initial message: {e}")
+    
+    try:
+        # Keep connection alive and handle messages
         while True:
-            await websocket.receive_text()
-    except Exception:
-        active_connections.remove(websocket)
+            # Wait for any message from client (ping/pong or actual messages)
+            try:
+                data = await asyncio.wait_for(websocket.receive_text(), timeout=30.0)
+                # Could handle client messages here if needed
+                if data == "ping":
+                    await websocket.send_text("pong")
+            except asyncio.TimeoutError:
+                # Send a ping to check if connection is still alive
+                try:
+                    await websocket.send_text("ping")
+                except:
+                    break
+                    
+    except WebSocketDisconnect:
+        logging.info("WebSocket client disconnected normally")
+    except Exception as e:
+        logging.debug(f"WebSocket error: {e}")
+    finally:
+        with connections_lock:
+            if websocket in active_connections:
+                active_connections.remove(websocket)
+        logging.info(f"WebSocket connection closed. Active connections: {len(active_connections)}")
+
+# --- Test Logging Endpoint ---
+@app.get("/test-logging")
+async def test_logging():
+    """Test endpoint to verify logging is working."""
+    logging.info("=" * 50)
+    logging.info("TEST LOG MESSAGE - INFO LEVEL")
+    logging.warning("TEST LOG MESSAGE - WARNING LEVEL")
+    logging.error("TEST LOG MESSAGE - ERROR LEVEL")
+    logging.info("=" * 50)
+    
+    # Also test module-specific logging
+    module_logger = logging.getLogger("my_framework.agents")
+    module_logger.info("Test message from my_framework.agents logger")
+    
+    return JSONResponse({
+        "message": "Test log messages sent",
+        "active_connections": len(active_connections),
+        "queue_size": log_queue.qsize()
+    })
+
+# --- Debug Info Endpoint ---
+@app.get("/debug-info")
+async def debug_info():
+    """Get debug information about the logging system."""
+    return JSONResponse({
+        "active_websocket_connections": len(active_connections),
+        "log_queue_size": log_queue.qsize(),
+        "root_logger_level": logging.getLevelName(root_logger.level),
+        "root_logger_handlers": [type(h).__name__ for h in root_logger.handlers],
+        "style_guru_available": STYLE_GURU_AVAILABLE
+    })

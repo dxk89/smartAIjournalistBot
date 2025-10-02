@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Log Test</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background-color: #1a1a1a;
+            color: #e0e0e0;
+            padding: 20px;
+            margin: 0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #4a9eff;
+            border-bottom: 2px solid #4a9eff;
+            padding-bottom: 10px;
+        }
+        .controls {
+            margin: 20px 0;
+            padding: 15px;
+            background: #2a2a2a;
+            border-radius: 5px;
+        }
+        button {
+            background: #4a9eff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #357abd;
+        }
+        button:disabled {
+            background: #555;
+            cursor: not-allowed;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 3px;
+            margin-left: 10px;
+            font-weight: bold;
+        }
+        .connected {
+            background: #0f9d58;
+            color: white;
+        }
+        .disconnected {
+            background: #f44336;
+            color: white;
+        }
+        .connecting {
+            background: #ff9800;
+            color: white;
+        }
+        #log-container {
+            background: #0a0a0a;
+            border: 1px solid #333;
+            border-radius: 5px;
+            padding: 15px;
+            height: 500px;
+            overflow-y: auto;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+        .log-entry {
+            margin: 2px 0;
+            padding: 2px 5px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .log-info {
+            color: #4a9eff;
+        }
+        .log-warning {
+            color: #ff9800;
+        }
+        .log-error {
+            color: #f44336;
+        }
+        .log-success {
+            color: #0f9d58;
+        }
+        .stats {
+            margin-top: 10px;
+            padding: 10px;
+            background: #2a2a2a;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-around;
+        }
+        .stat-item {
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #4a9eff;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #888;
+            margin-top: 5px;
+        }
+        .debug-info {
+            margin-top: 20px;
+            padding: 15px;
+            background: #1f1f1f;
+            border: 1px solid #444;
+            border-radius: 5px;
+        }
+        .debug-info h3 {
+            color: #ff9800;
+            margin-top: 0;
+        }
+        .debug-info pre {
+            background: #0a0a0a;
+            padding: 10px;
+            border-radius: 3px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 WebSocket Log Tester</h1>
+        
+        <div class="controls">
+            <button id="connectBtn" onclick="connectWebSocket()">Connect</button>
+            <button id="disconnectBtn" onclick="disconnectWebSocket()" disabled>Disconnect</button>
+            <button onclick="clearLogs()">Clear Logs</button>
+            <button onclick="testLogging()">Send Test Logs</button>
+            <button onclick="getDebugInfo()">Get Debug Info</button>
+            <span id="status" class="status disconnected">Disconnected</span>
+            <span style="margin-left: 20px;">URL: <input type="text" id="wsUrl" value="ws://localhost:8000/ws" style="width: 300px;"></span>
+        </div>
+        
+        <div class="stats">
+            <div class="stat-item">
+                <div class="stat-value" id="messageCount">0</div>
+                <div class="stat-label">Messages Received</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="connectionTime">00:00</div>
+                <div class="stat-label">Connection Time</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="errorCount">0</div>
+                <div class="stat-label">Errors</div>
+            </div>
+        </div>
+        
+        <h2>📋 Live Logs</h2>
+        <div id="log-container"></div>
+        
+        <div class="debug-info">
+            <h3>Debug Information</h3>
+            <pre id="debugOutput">Click "Get Debug Info" to see server status</pre>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let messageCount = 0;
+        let errorCount = 0;
+        let connectionStartTime = null;
+        let connectionTimer = null;
+        
+        function updateStatus(status, className) {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = status;
+            statusEl.className = 'status ' + className;
+        }
+        
+        function addLog(message, type = 'info') {
+            const container = document.getElementById('log-container');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry log-' + type;
+            entry.textContent = new Date().toLocaleTimeString() + ' - ' + message;
+            container.appendChild(entry);
+            container.scrollTop = container.scrollHeight;
+            
+            if (type !== 'error') {
+                messageCount++;
+                document.getElementById('messageCount').textContent = messageCount;
+            } else {
+                errorCount++;
+                document.getElementById('errorCount').textContent = errorCount;
+            }
+        }
+        
+        function updateConnectionTime() {
+            if (connectionStartTime) {
+                const elapsed = Math.floor((Date.now() - connectionStartTime) / 1000);
+                const minutes = Math.floor(elapsed / 60);
+                const seconds = elapsed % 60;
+                document.getElementById('connectionTime').textContent = 
+                    `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            }
+        }
+        
+        function connectWebSocket() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                addLog('Already connected!', 'warning');
+                return;
+            }
+            
+            const url = document.getElementById('wsUrl').value;
+            addLog('Connecting to ' + url + '...', 'info');
+            updateStatus('Connecting...', 'connecting');
+            
+            try {
+                ws = new WebSocket(url);
+                
+                ws.onopen = (event) => {
+                    addLog('✅ WebSocket connected successfully!', 'success');
+                    updateStatus('Connected', 'connected');
+                    document.getElementById('connectBtn').disabled = true;
+                    document.getElementById('disconnectBtn').disabled = false;
+                    
+                    connectionStartTime = Date.now();
+                    connectionTimer = setInterval(updateConnectionTime, 1000);
+                };
+                
+                ws.onmessage = (event) => {
+                    // Parse log level from message if possible
+                    const message = event.data;
+                    let type = 'info';
+                    
+                    if (message.includes('ERROR') || message.includes('🔥')) {
+                        type = 'error';
+                    } else if (message.includes('WARNING') || message.includes('⚠️')) {
+                        type = 'warning';
+                    } else if (message.includes('✅') || message.includes('SUCCESS')) {
+                        type = 'success';
+                    }
+                    
+                    addLog(message, type);
+                };
+                
+                ws.onerror = (error) => {
+                    addLog('❌ WebSocket error: ' + error.type, 'error');
+                    console.error('WebSocket error:', error);
+                };
+                
+                ws.onclose = (event) => {
+                    addLog(`WebSocket closed (Code: ${event.code}, Reason: ${event.reason || 'No reason'})`, 'warning');
+                    updateStatus('Disconnected', 'disconnected');
+                    document.getElementById('connectBtn').disabled = false;
+                    document.getElementById('disconnectBtn').disabled = true;
+                    
+                    if (connectionTimer) {
+                        clearInterval(connectionTimer);
+                        connectionTimer = null;
+                    }
+                    connectionStartTime = null;
+                    document.getElementById('connectionTime').textContent = '00:00';
+                };
+                
+                // Send periodic ping to keep connection alive
+                setInterval(() => {
+                    if (ws && ws.readyState === WebSocket.OPEN) {
+                        ws.send('ping');
+                    }
+                }, 25000);
+                
+            } catch (error) {
+                addLog('Failed to create WebSocket: ' + error.message, 'error');
+                updateStatus('Error', 'disconnected');
+            }
+        }
+        
+        function disconnectWebSocket() {
+            if (ws) {
+                addLog('Closing WebSocket connection...', 'info');
+                ws.close();
+                ws = null;
+            }
+        }
+        
+        function clearLogs() {
+            document.getElementById('log-container').innerHTML = '';
+            messageCount = 0;
+            errorCount = 0;
+            document.getElementById('messageCount').textContent = '0';
+            document.getElementById('errorCount').textContent = '0';
+            addLog('Logs cleared', 'info');
+        }
+        
+        async function testLogging() {
+            try {
+                const response = await fetch('/test-logging');
+                const data = await response.json();
+                addLog('Test logs sent to server. Response: ' + JSON.stringify(data), 'success');
+            } catch (error) {
+                addLog('Failed to send test logs: ' + error.message, 'error');
+            }
+        }
+        
+        async function getDebugInfo() {
+            try {
+                const response = await fetch('/debug-info');
+                const data = await response.json();
+                document.getElementById('debugOutput').textContent = JSON.stringify(data, null, 2);
+                addLog('Debug info retrieved', 'success');
+            } catch (error) {
+                addLog('Failed to get debug info: ' + error.message, 'error');
+                document.getElementById('debugOutput').textContent = 'Error: ' + error.message;
+            }
+        }
+        
+        // Auto-connect on page load
+        window.onload = () => {
+            addLog('Page loaded. Click "Connect" to start WebSocket connection.', 'info');
+            // Optionally auto-connect:
+            // setTimeout(connectWebSocket, 500);
+        };
+        
+        // Clean up on page unload
+        window.onbeforeunload = () => {
+            if (ws) {
+                ws.close();
+            }
+        };
+    </script>
+</body>
+</html>

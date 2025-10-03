@@ -62,7 +62,7 @@ class OrchestratorAgent(Runnable):
         user_goal = input.get("input")
         self.memory.append(HumanMessage(content=user_goal))
         
-        is_prewritten = "source_content" in input and not input.get("source_url")
+        is_prewritten = "source_content" in input and input["source_content"] and not input.get("source_url")
         
         if is_prewritten:
             self.logger.info("📄 PRE-WRITTEN ARTICLE DETECTED")
@@ -115,8 +115,6 @@ class OrchestratorAgent(Runnable):
 
     def _handle_prewritten_article(self, input: dict) -> str:
         source_content = input.get("source_content")
-        username = input.get("username")
-        password = input.get("password")
         
         self.logger.info("\n" + "="*70)
         self.logger.info("PRE-WRITTEN ARTICLE WORKFLOW")
@@ -135,7 +133,12 @@ class OrchestratorAgent(Runnable):
         self.logger.info("✅ Metadata generated")
         
         self.logger.info("\n[3/3] 🚀 Publishing to CMS...")
-        publisher_input = { "article_json_string": article_json, "username": username, "password": password }
+        # --- FIX: Removed URLs from this dictionary. Publisher now handles them. ---
+        publisher_input = {
+            "article_json_string": article_json,
+            "username": input.get("username"),
+            "password": input.get("password")
+        }
         result = self.publisher.invoke(publisher_input)
         
         self.logger.info("\n" + "="*70)
@@ -175,7 +178,6 @@ class OrchestratorAgent(Runnable):
         
         self.logger.info("\n[3/3] 📊 Extracting component scores...")
         if feedback:
-            # --- FIX: Updated regex to capture the score before the slash ---
             patterns = {
                 "lead_quality": r"Lead Quality:\s*([\d.]+)\/",
                 "structure": r"Structure:\s*([\d.]+)\/",

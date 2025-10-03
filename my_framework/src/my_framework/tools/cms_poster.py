@@ -30,7 +30,7 @@ from my_framework.agents.utils import (
     LATAM_TODAY_MAP,
 )
 
-def post_article_to_cms(article_json: str, username: str, password: str, logger) -> str:
+def post_article_to_cms(article_json: str, username: str, password: str, login_url: str, create_article_url: str, logger) -> str:
     """
     Logs into the CMS, creates a new article, fills in the fields based on the JSON data, and saves it.
     """
@@ -44,9 +44,10 @@ def post_article_to_cms(article_json: str, username: str, password: str, logger)
         log.error(f"Error decoding JSON: {e}")
         return f"Error: Invalid JSON format. {e}"
 
-    # Get URLs from environment variables or use defaults
-    login_url = os.environ.get("CMS_LOGIN_URL", "https://cms.intellinews.com/user/login")
-    create_article_url = os.environ.get("CMS_CREATE_ARTICLE_URL", "https://cms.intellinews.com/node/add/article")
+    if not login_url or not create_article_url:
+        error_msg = "Error: CMS Login URL and Create Article URL must be provided."
+        log.critical(error_msg)
+        return error_msg
 
     # Setup Chrome options
     chrome_options = Options()
@@ -54,26 +55,48 @@ def post_article_to_cms(article_json: str, username: str, password: str, logger)
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("--window-size=1920,1080")
 
+    # Conditionally run in headless mode
+    if os.environ.get('RENDER') == 'true':
+        log.info("Render environment detected. Running in headless mode.")
+        chrome_options.add_argument("--headless")
+    else:
+        log.info("Local environment detected. Running with browser window.")
+
     # Setup WebDriver using webdriver-manager
     service = Service(ChromeDriverManager().install())
     driver = webdriver.Chrome(service=service, options=chrome_options)
-    wait = WebDriverWait(driver, 20)
+    wait = WebDriverWait(driver, 30)  # Increased wait time
 
     try:
         # 1. Login
         log.info(f"Navigating to login page at {login_url}...")
         driver.get(login_url)
-        
+
         log.info("Entering login credentials...")
         wait.until(EC.presence_of_element_located((By.ID, "edit-name"))).send_keys(username)
         driver.find_element(By.ID, "edit-pass").send_keys(password)
         driver.find_element(By.ID, "edit-submit").click()
-        
+
         log.info("Login submitted. Verifying success...")
-        wait.until(EC.url_contains("user"))
-        if "dashboard" not in driver.current_url:
-            log.warning(f"Login may have failed. Current URL: {driver.current_url}")
-        log.info("Login successful.")
+        try:
+            wait.until(EC.url_contains("dashboard"))
+            wait.until(EC.presence_of_element_located((By.ID, "page-title"))) # A common element on dashboards
+            log.info("Login successful. Dashboard loaded.")
+        except TimeoutException:
+            log.critical("Login failed. Could not verify dashboard URL or presence of dashboard elements.")
+            # Enhanced debugging: Save screenshot and page source
+            try:
+                screenshot_path = f"/tmp/login_failed_{int(time.time())}.png"
+                driver.save_screenshot(screenshot_path)
+                log.info(f"Screenshot saved to {screenshot_path}")
+                html_path = f"/tmp/login_failed_source_{int(time.time())}.html"
+                with open(html_path, "w", encoding="utf-8") as f:
+                    f.write(driver.page_source)
+                log.info(f"Page source saved to {html_path}")
+            except Exception as e:
+                log.error(f"Failed to save debug info: {e}")
+            raise Exception("Login Failed: Timed out waiting for dashboard.")
+
 
         # 2. Navigate to Create Article Page
         log.info(f"Navigating to 'Add Article' page at {create_article_url}...")
@@ -92,8 +115,9 @@ def post_article_to_cms(article_json: str, username: str, password: str, logger)
         # Body
         log.info("Setting body content...")
         body = remove_non_bmp_chars(article_data.get("body", ""))
+        wait.until(EC.presence_of_element_located((By.ID, "edit-body-und-0-value_ifr")))
         driver.switch_to.frame(driver.find_element(By.ID, "edit-body-und-0-value_ifr"))
-        driver.find_element(By.ID, "tinymce").send_keys(body)
+        wait.until(EC.presence_of_element_located((By.ID, "tinymce"))).send_keys(body)
         driver.switch_to.default_content()
 
         log.info("Expanding all form sections...")
@@ -108,100 +132,20 @@ def post_article_to_cms(article_json: str, username: str, password: str, logger)
             except Exception as e:
                 log.warning(f"   Failed to expand fieldset {i}: {e}")
 
-        # INCREASED WAIT: Allow more time for dynamic content to load
-        log.info("Waiting 10 seconds for all form elements to fully load...")
-        time.sleep(10) # Increased from 5 to 10 seconds
-
-        # Additional wait for AJAX requests to complete
-        log.info("Waiting for any AJAX requests to complete...")
-        try:
-            # Wait for jQuery AJAX to complete (if jQuery is present)
-            wait.until(lambda d: d.execute_script("return typeof jQuery !== 'undefined' && jQuery.active == 0"))
-            log.info("✅ jQuery AJAX requests completed")
-        except:
-            log.warning("⚠️ Could not verify AJAX completion (jQuery might not be available)")
-            time.sleep(3) # Extra safety buffer
-
-        # Wait for document ready state
-        try:
-            wait.until(lambda d: d.execute_script("return document.readyState") == "complete")
-            log.info("✅ Document ready state is complete")
-        except:
-            log.warning("⚠️ Could not verify document ready state")
-            
-        # Verify critical elements are present before proceeding
+        # Wait for critical elements to be present and interactable
         log.info("Verifying critical dropdown elements are present and interactable...")
         critical_elements = {
             "edit-field-daily-publications-subject-und": "Daily Publications Subject",
             "edit-field-key-point-und": "Key Point",
             "edit-field-machine-written-und": "Machine Written"
         }
-
-        missing_elements = []
         for element_id, element_name in critical_elements.items():
             try:
-                # Wait for element to be present
-                element = wait.until(EC.presence_of_element_located((By.ID, element_id)))
-                
-                # Verify it's actually a select element
-                if element.tag_name != "select":
-                    log.critical(f"   🔥 {element_name} found but is not a select element (is {element.tag_name})")
-                    missing_elements.append(element_name)
-                    continue
-                
-                # Verify it has options loaded
-                options = element.find_elements(By.TAG_NAME, "option")
-                if len(options) == 0:
-                    log.critical(f"   🔥 {element_name} has no options loaded")
-                    missing_elements.append(element_name)
-                    continue
-                
-                # Verify element is visible and enabled
-                if not element.is_displayed():
-                    log.warning(f"   ⚠️ {element_name} is not visible")
-                
-                if not element.is_enabled():
-                    log.critical(f"   🔥 {element_name} is not enabled")
-                    missing_elements.append(element_name)
-                    continue
-                
-                log.info(f"   ✅ {element_name} found with {len(options)} options, visible and enabled")
-                
+                element = wait.until(EC.element_to_be_clickable((By.ID, element_id)))
+                log.info(f"   ✅ {element_name} is clickable.")
             except TimeoutException:
-                log.critical(f"   🔥 {element_name} (ID: {element_id}) NOT FOUND after waiting")
-                missing_elements.append(element_name)
-            except Exception as e:
-                log.critical(f"   🔥 Error verifying {element_name}: {e}")
-                missing_elements.append(element_name)
-
-        if missing_elements:
-            log.critical(f"🔥 CRITICAL: {len(missing_elements)} required elements not ready: {', '.join(missing_elements)}")
-            
-            # Enhanced debugging: Save screenshot and page source
-            try:
-                screenshot_path = f"/tmp/missing_dropdowns_{int(time.time())}.png"
-                driver.save_screenshot(screenshot_path)
-                log.info(f"Screenshot saved to {screenshot_path}")
-            except Exception as e:
-                log.error(f"Failed to save screenshot: {e}")
-            
-            try:
-                html_path = f"/tmp/page_source_{int(time.time())}.html"
-                with open(html_path, "w", encoding="utf-8") as f:
-                    f.write(driver.page_source)
-                log.info(f"Page source saved to {html_path}")
-            except Exception as e:
-                log.error(f"Failed to save page source: {e}")
-            
-            # Log all select elements that ARE present
-            try:
-                all_selects = driver.find_elements(By.TAG_NAME, "select")
-                select_ids = [s.get_attribute('id') for s in all_selects if s.get_attribute('id')]
-                log.info(f"   Available select IDs: {select_ids[:20]}") # First 20
-            except:
-                pass
-            
-            raise Exception(f"Required form elements not loaded: {', '.join(missing_elements)}. Cannot proceed.")
+                 log.critical(f"   🔥 {element_name} (ID: {element_id}) NOT FOUND or not clickable after waiting")
+                 raise Exception(f"Required form element not loaded: {element_name}")
 
         log.info("✅ All critical dropdown elements confirmed present and ready")
 
@@ -214,14 +158,14 @@ def post_article_to_cms(article_json: str, username: str, password: str, logger)
         tick_checkboxes_by_id(driver, publication_ids, log)
 
 
-        # ... (rest of the dropdown selections)
+        # ... (rest of the dropdown selections can be added here)
 
         # 4. Save the Article
         log.info("Attempting to save the article...")
         save_button = driver.find_element(By.ID, "edit-submit")
         driver.execute_script("arguments[0].scrollIntoView(true);", save_button)
-        time.sleep(1)
-        save_button.click()
+        wait.until(EC.element_to_be_clickable((By.ID, "edit-submit"))).click()
+
 
         # 5. Verify Submission
         log.info("Verifying submission...")
@@ -234,7 +178,7 @@ def post_article_to_cms(article_json: str, username: str, password: str, logger)
             return f"Article posted successfully! URL: {final_url}"
         except TimeoutException:
             log.error("Failed to find success message. Posting may have failed.")
-            
+
             # Debugging: Check for error messages
             try:
                 error_message = driver.find_element(By.CSS_SELECTOR, ".messages.error")

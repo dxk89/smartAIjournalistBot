@@ -72,8 +72,18 @@ def orchestrator_workflow(config_data: dict):
         use_style_guru = config_data.get('use_style_guru', True)
         orchestrator = OrchestratorAgent(llm=llm, use_style_guru=use_style_guru, logger=logger)
         
+        # Prepare the initial context for the orchestrator
         user_goal = config_data.get("user_goal", "No goal provided.")
-        initial_context = {**config_data, "input": user_goal}
+        initial_context = {
+            "input": user_goal,
+            "source_url": config_data.get("source_url"),
+            "source_content": config_data.get("source_content"),
+            "username": config_data.get("username"),
+            "password": config_data.get("password"),
+            "cms_login_url": config_data.get("cms_login_url"),
+            "cms_create_article_url": config_data.get("cms_create_article_url"),
+            "publication_ids": config_data.get("publication_ids", [])
+        }
         
         final_result = orchestrator.invoke(initial_context)
         

@@ -1,5 +1,5 @@
 # File: src/my_framework/tools/cms_poster.py
-# FIXED VERSION - All required fields properly filled
+# FIXED VERSION - Proper date calculation and all fields correctly filled
 
 import json
 import os
@@ -28,9 +28,8 @@ def strip_html(text):
 def clean_article_content(article_content):
     text_fields = [
         'title', 'body', 'weekly_title_value', 'website_callout_value',
-        'social_media_callout_value', 'seo_title_value', 'seo_description',
-        'seo_keywords', 'abstract_value', 'google_news_keywords_value',
-        'byline_value'
+        'social_media_callout_value', 'seo_title_value', 'seo_keywords',
+        'abstract_value', 'google_news_keywords_value', 'byline_value'
     ]
     for field in text_fields:
         if field in article_content and isinstance(article_content[field], str):
@@ -64,10 +63,19 @@ def post_article_to_cms(article_json_string: str, username: str, password: str, 
         return json.dumps({"error": error_message})
     log.info("✅ Metadata validation successful.")
 
+    # FIX: Calculate publication date - next day if after 7am GMT, today otherwise
     gmt = pytz.timezone('GMT')
     now_gmt = datetime.now(gmt)
-    target_date = (now_gmt + timedelta(days=1)) if now_gmt.hour >= 7 else now_gmt
+    
+    if now_gmt.hour >= 7:
+        target_date = now_gmt + timedelta(days=1)
+        log.info(f"   Current time is {now_gmt.strftime('%H:%M')} GMT (>= 7am) - using next day")
+    else:
+        target_date = now_gmt
+        log.info(f"   Current time is {now_gmt.strftime('%H:%M')} GMT (< 7am) - using today")
+    
     target_date_str = target_date.strftime('%m/%d/%Y')
+    log.info(f"   Publication date set to: {target_date_str}")
 
     driver = None
     is_render_env = 'RENDER' in os.environ
@@ -114,7 +122,9 @@ def post_article_to_cms(article_json_string: str, username: str, password: str, 
         time.sleep(2)
 
         def safe_fill(element_id, value, field_name):
-            if not value: return
+            if not value: 
+                log.info(f"   ⊘ Skipping {field_name} (empty)")
+                return
             try:
                 element = wait.until(EC.presence_of_element_located((By.ID, element_id)))
                 driver.execute_script("arguments[0].value = arguments[1];", element, value)
@@ -124,7 +134,13 @@ def post_article_to_cms(article_json_string: str, username: str, password: str, 
 
         log.info("--- Filling Main Article Fields ---")
         safe_fill("edit-title", article_content.get("title"), "Title")
-        safe_fill("edit-field-byline-und-0-value", article_content.get("byline_value", username), "Byline")
+        
+        # FIX: Byline can be left blank - only fill if provided
+        byline = article_content.get("byline_value", "").strip()
+        if byline:
+            safe_fill("edit-field-byline-und-0-value", byline, "Byline")
+        else:
+            log.info("   ⊘ Byline left blank (as per specification)")
 
         try:
             iframe = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "iframe.cke_wysiwyg_frame")))
@@ -137,14 +153,31 @@ def post_article_to_cms(article_json_string: str, username: str, password: str, 
             driver.switch_to.default_content()
 
         log.info("--- Filling Metadata and SEO Fields ---")
+        # Weekly title = title (already set by editor)
         safe_fill("edit-field-weekly-title-und-0-value", article_content.get("weekly_title_value"), "Weekly Title")
+        
+        # Website callout = first sentence (already set by editor)
         safe_fill("edit-field-website-callout-und-0-value", article_content.get("website_callout_value"), "Website Callout")
+        
+        # Social media callout = first sentence + hashtags (already set by editor)
         safe_fill("edit-field-social-media-callout-und-0-value", article_content.get("social_media_callout_value"), "Social Media Callout")
+        
+        # Abstract = title (already set by editor)
         safe_fill("edit-field-abstract-und-0-value", article_content.get("abstract_value"), "Abstract")
+        
+        # SEO Title
         safe_fill("edit-field-seo-title-und-0-value", article_content.get("seo_title_value"), "SEO Title")
-        safe_fill("edit-field-seo-description-und-0-value", article_content.get("seo_description"), "SEO Description")
+        
+        # FIX: SEO Description is auto-filled by CMS - skip it
+        log.info("   ⊘ Skipping SEO Description (auto-filled by CMS)")
+        
+        # Keywords = same as Google News Keywords (already set by editor)
         safe_fill("edit-field-seo-keywords-und-0-value", article_content.get("seo_keywords"), "SEO Keywords")
+        
+        # Google News Keywords = same as Keywords (already set by editor)
         safe_fill("edit-field-google-news-keywords-und-0-value", article_content.get("google_news_keywords_value"), "Google News Keywords")
+        
+        # Hashtags
         safe_fill("edit-field-hashtags-und-0-value", ' '.join(article_content.get("hashtags", [])), "Hashtags")
 
         log.info("--- Ticking Publication Checkboxes ---")

@@ -1,4 +1,5 @@
 # File: src/my_framework/agents/editor.py
+# FIXED VERSION - Proper metadata generation before browser automation
 
 import json
 from typing import List
@@ -109,6 +110,61 @@ def _get_seo_metadata(llm: BaseChatModel, revised_article: str, logger=None) -> 
         log.info("   - Getting industry selection...")
         metadata['industries'] = _get_industry_selection(llm, revised_article, log)
         log.info(f"   - Industries selected by LLM: {metadata['industries']}")
+        
+        # FIX: Ensure weekly_title matches title
+        if 'title' in metadata:
+            metadata['weekly_title_value'] = metadata['title']
+            log.info(f"   - Set weekly_title_value = title")
+        
+        # FIX: Extract first sentence for callouts
+        paragraphs = revised_article.strip().split('\n')
+        first_sentence = ""
+        for p in paragraphs:
+            p_clean = p.strip()
+            if p_clean:
+                # Split by period but handle edge cases
+                sentences = p_clean.split('.')
+                if sentences[0].strip():
+                    first_sentence = sentences[0].strip() + '.'
+                    break
+        
+        # FIX: Website callout = first sentence (max 250 chars)
+        if first_sentence:
+            metadata['website_callout_value'] = first_sentence[:247] + ('...' if len(first_sentence) > 250 else '')
+            log.info(f"   - Set website_callout_value from first sentence ({len(metadata['website_callout_value'])} chars)")
+        
+        # FIX: Social media callout = first sentence + hashtags (max 250 chars)
+        if first_sentence and metadata.get('hashtags'):
+            hashtags_str = ' '.join(metadata['hashtags'][:3])  # Use up to 3 hashtags
+            social_callout = f"{first_sentence} {hashtags_str}"
+            if len(social_callout) > 250:
+                # Trim the sentence to fit hashtags
+                max_sentence_len = 250 - len(hashtags_str) - 4  # -4 for space and ellipsis
+                social_callout = f"{first_sentence[:max_sentence_len]}... {hashtags_str}"
+            metadata['social_media_callout_value'] = social_callout[:250]
+            log.info(f"   - Set social_media_callout_value with hashtags ({len(metadata['social_media_callout_value'])} chars)")
+        elif first_sentence:
+            metadata['social_media_callout_value'] = first_sentence[:247] + ('...' if len(first_sentence) > 250 else '')
+            log.info(f"   - Set social_media_callout_value without hashtags ({len(metadata['social_media_callout_value'])} chars)")
+        
+        # FIX: Google news keywords = SEO keywords
+        if metadata.get('seo_keywords'):
+            metadata['google_news_keywords_value'] = metadata['seo_keywords']
+            log.info(f"   - Set google_news_keywords_value = seo_keywords")
+        
+        # FIX: Abstract = title
+        if 'title' in metadata:
+            metadata['abstract_value'] = metadata['title']
+            log.info(f"   - Set abstract_value = title")
+        
+        # FIX: Remove SEO description (auto-filled by CMS)
+        if 'seo_description' in metadata:
+            metadata.pop('seo_description')
+            log.info(f"   - Removed seo_description (auto-filled by CMS)")
+        
+        # FIX: Byline should be empty by default
+        metadata['byline_value'] = ""
+        log.info(f"   - Set byline_value to empty (will be filled by CMS or left blank)")
         
         return json.dumps(metadata)
     except Exception as e:

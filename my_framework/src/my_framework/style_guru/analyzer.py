@@ -27,16 +27,13 @@ except LookupError:
 @tool
 def style_scoring_tool(article_text: str) -> float:
     """Score an article's adherence to IntelliNews style."""
-    print("   - 🤖 Running Style Scoring Tool...")
     feats = text_features(article_text).reshape(1, -1)
     agent = AdvancedNeuralAgent(input_size=feats.shape[1])
     try:
         agent.load("data/model_weights.npz")
         score = agent.predict(feats)[0, 0]
-        print(f"   - ✅ Style Score: {score:.3f}")
         return score
     except Exception as e:
-        print(f"   - ⚠️ Error loading style model: {e}")
         return 0.0
 
 
@@ -45,7 +42,6 @@ def analyze_articles_with_llm(text: str, api_key: str) -> dict:
     Perform LLM-based stylistic analysis on article text.
     This provides deeper insights beyond basic statistics.
     """
-    print("   - 🤖 Performing LLM-based stylistic analysis...")
     llm = ChatOpenAI(api_key=api_key, model_name="gpt-4o", temperature=0)
     
     prompt = f"""
@@ -76,7 +72,6 @@ def analyze_articles_with_llm(text: str, api_key: str) -> dict:
         clean_response = response.content.strip().removeprefix("```json").removesuffix("```").strip()
         return json.loads(clean_response)
     except Exception as e:
-        print(f"   - 🔥 LLM analysis failed: {e}")
         return {}
 
 
@@ -85,12 +80,9 @@ def generate_style_sheet():
     Generate a comprehensive style guide from recent IntelliNews articles.
     Returns actual writing examples and patterns, not just statistics.
     """
-    print("[ℹ️] Generating style sheet from recent IntelliNews articles...")
-    
     articles = fetch_rss()
     
     if not articles or len(articles) < 3:
-        print("[❌] Insufficient articles to generate style sheet")
         return None
     
     # Take the 5 most recent articles as examples
@@ -225,7 +217,7 @@ Quote Density: {llm_analysis['quote_density']} quotes per 1000 words
 - Always attribute quotes properly
 """
     except Exception as e:
-        print(f"   - ⚠️ Skipping LLM analysis: {e}")
+        pass
     
     style_sheet += """
 
@@ -301,14 +293,11 @@ CRITICAL REMINDERS:
 =================================================================
 """
     
-    print("[✅] Style sheet generated successfully")
-    
     # Save to file for reference
     try:
         with open("latest_style_sheet.txt", "w", encoding="utf-8") as f:
             f.write(style_sheet)
-        print("[ℹ️] Style sheet saved to: latest_style_sheet.txt")
     except Exception as e:
-        print(f"[⚠️] Could not save style sheet to file: {e}")
+        pass
     
     return style_sheet

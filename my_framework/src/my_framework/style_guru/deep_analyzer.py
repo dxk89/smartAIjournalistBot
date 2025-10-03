@@ -12,8 +12,6 @@ def analyze_article_batch(articles: List[Dict], llm: ChatOpenAI, batch_num: int)
     Deep analysis of a batch of articles using GPT-4.
     Extracts nuanced patterns, style characteristics, and writing techniques.
     """
-    print(f"   [Batch {batch_num}] Analyzing {len(articles)} articles with GPT-4...")
-    
     # Combine articles for analysis
     combined_text = ""
     for i, article in enumerate(articles, 1):
@@ -52,7 +50,6 @@ Be specific and provide examples where possible.
         clean_response = response.content.strip().removeprefix("```json").removesuffix("```").strip()
         return json.loads(clean_response)
     except Exception as e:
-        print(f"   [Batch {batch_num}] ⚠️ Analysis failed: {e}")
         return {}
 
 
@@ -61,32 +58,23 @@ def deep_style_analysis(max_articles: int = 300) -> Dict:
     Perform deep analysis on up to 300 IntelliNews articles.
     Returns a comprehensive style framework.
     """
-    print("\n" + "="*70)
-    print("DEEP STYLE ANALYSIS - 300 ARTICLES")
-    print("="*70)
-    
     # Fetch articles
-    print("\n[1/4] Fetching articles from RSS feeds...")
     articles = fetch_rss()
     
     if not articles:
-        print("❌ No articles fetched!")
         return {}
     
     # Limit to requested number
     articles = articles[:max_articles]
-    print(f"✅ Fetched {len(articles)} articles for analysis")
     
     # Initialize LLM
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key:
-        print("❌ No OpenAI API key found!")
         return {}
     
     llm = ChatOpenAI(api_key=api_key, model_name="gpt-4o", temperature=0)
     
     # Analyze in batches (10 articles per batch to stay within token limits)
-    print("\n[2/4] Analyzing articles in batches...")
     batch_size = 10
     all_analyses = []
     
@@ -97,19 +85,11 @@ def deep_style_analysis(max_articles: int = 300) -> Dict:
         if analysis:
             all_analyses.append(analysis)
     
-    print(f"✅ Completed {len(all_analyses)} batch analyses")
-    
     # Synthesize all analyses into one framework
-    print("\n[3/4] Synthesizing comprehensive style framework...")
     synthesis = synthesize_analyses(all_analyses, llm, len(articles))
     
     # Save framework
-    print("\n[4/4] Saving style framework...")
     save_style_framework(synthesis, articles[:10])  # Include 10 example articles
-    
-    print("\n" + "="*70)
-    print("✅ DEEP ANALYSIS COMPLETE")
-    print("="*70)
     
     return synthesis
 
@@ -118,8 +98,6 @@ def synthesize_analyses(analyses: List[Dict], llm: ChatOpenAI, total_articles: i
     """
     Synthesize multiple batch analyses into one comprehensive framework.
     """
-    print(f"   Synthesizing {len(analyses)} batch analyses...")
-    
     # Combine all analyses
     combined = json.dumps(analyses, indent=2)
     
@@ -155,10 +133,8 @@ Make this actionable and specific. Include examples.
         response = llm.invoke(messages)
         clean_response = response.content.strip().removeprefix("```json").removesuffix("```").strip()
         framework = json.loads(clean_response)
-        print("   ✅ Synthesis complete")
         return framework
     except Exception as e:
-        print(f"   ⚠️ Synthesis failed: {e}")
         return {}
 
 
@@ -183,18 +159,16 @@ def save_style_framework(framework: Dict, example_articles: List[Dict]):
     try:
         with open("intellinews_style_framework.json", "w", encoding="utf-8") as f:
             json.dump(output, f, indent=2, ensure_ascii=False)
-        print("   ✅ Framework saved to: intellinews_style_framework.json")
     except Exception as e:
-        print(f"   ⚠️ Could not save framework: {e}")
+        pass
     
     # Also create a human-readable version
     try:
         readable = format_framework_readable(framework, example_articles)
         with open("intellinews_style_guide.txt", "w", encoding="utf-8") as f:
             f.write(readable)
-        print("   ✅ Readable guide saved to: intellinews_style_guide.txt")
     except Exception as e:
-        print(f"   ⚠️ Could not save readable guide: {e}")
+        pass
 
 
 def format_framework_readable(framework: Dict, examples: List[Dict]) -> str:

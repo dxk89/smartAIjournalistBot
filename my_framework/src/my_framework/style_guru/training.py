@@ -38,15 +38,12 @@ def fetch_rss():
     
     for url in RSS_URLS:
         try:
-            print(f"[ℹ️] Fetching RSS feed: {url}")
             r = requests.get(url, timeout=15, headers={'User-Agent': 'Mozilla/5.0'})
             r.raise_for_status()
             
             # Parse as XML
             soup = BeautifulSoup(r.content, "xml")
             entries = soup.find_all("entry")
-            
-            print(f"[ℹ️] Found {len(entries)} entries in feed")
             
             for e in entries:
                 try:
@@ -68,19 +65,15 @@ def fetch_rss():
                             "title": title,
                             "text": clean_content
                         })
-                        print(f"[+] Added article: {title[:60]}... ({len(clean_content)} chars)")
                     else:
-                        print(f"[!] Skipped short article: {title[:60]}...")
+                        pass
                         
                 except Exception as e:
-                    print(f"[!] Error processing entry: {e}")
                     continue
                     
         except Exception as e:
-            print(f"[!] RSS fetch failed for {url}: {e}")
             continue
     
-    print(f"[✅] Total articles fetched: {len(all_articles)}")
     return all_articles
 
 def build_dataset(limit=100):
@@ -88,18 +81,15 @@ def build_dataset(limit=100):
     articles = fetch_rss()
     
     if not articles:
-        print("[❌] No articles fetched - cannot build dataset")
         return
     
     articles = articles[:limit]
-    print(f"[ℹ️] Building dataset with {len(articles)} articles")
 
     X, y = [], []
     for idx, article in enumerate(articles, 1):
         try:
             body = article['text']
             if not body or not body.strip():
-                print(f"[!] Skipped empty article: {article['title']}")
                 continue
                 
             feats = text_features(body)
@@ -107,19 +97,16 @@ def build_dataset(limit=100):
             y.append(1.0)  # All IntelliNews articles are positive examples
             
             word_count = len(body.split())
-            print(f"[+] ({idx}/{len(articles)}) {article['title'][:50]}... — {word_count} words")
             
         except Exception as e:
-            print(f"[!] Failed processing {article['title']}: {e}")
             continue
 
     if X:
         X, y = np.array(X), np.array(y)
         np.save(DATA_DIR / "X.npy", X)
         np.save(DATA_DIR / "y.npy", y)
-        print(f"[✅] Dataset built: {X.shape[0]} samples, {X.shape[1]} features")
     else:
-        print("[❌] No valid articles processed — dataset not created")
+        pass
 
 def train_model():
     """Train the neural style scoring model."""
@@ -127,13 +114,11 @@ def train_model():
         X = np.load(DATA_DIR / "X.npy")
         y = np.load(DATA_DIR / "y.npy")
         
-        print(f"[ℹ️] Training model with {len(X)} samples...")
         agent = AdvancedNeuralAgent(input_size=X.shape[1])
         agent.train(X, y, epochs=200)
         agent.save(DATA_DIR / "model_weights.npz")
         
-        print("[✅] Model trained and saved.")
     except FileNotFoundError:
-        print("[❌] Dataset files not found. Run build_dataset() first.")
+        pass
     except Exception as e:
-        print(f"[❌] Training failed: {e}")
+        pass

@@ -1,7 +1,6 @@
 # File: src/my_framework/agents/orchestrator.py
 
 import json
-import logging
 import os
 from my_framework.core.runnables import Runnable
 from my_framework.models.base import BaseChatModel
@@ -14,6 +13,7 @@ from my_framework.agents.summarizer import SummarizerAgent
 from my_framework.core.schemas import SystemMessage, HumanMessage
 from my_framework.apps import rules
 from my_framework.models.openai import safe_load_json
+from my_framework.agents.loggerbot import LoggerBot
 
 # Import Style Guru scorer for pre-written articles
 try:
@@ -25,29 +25,30 @@ except ImportError:
 class OrchestratorAgent(Runnable):
     llm: BaseChatModel
 
-    def __init__(self, llm: BaseChatModel, use_style_guru: bool = True, score_threshold: float = 0.80):
+    def __init__(self, llm: BaseChatModel, use_style_guru: bool = True, score_threshold: float = 0.80, logger=None):
         self.llm = llm
-        self.researcher = ResearcherAgent()
-        self.summarizer = SummarizerAgent(llm=llm)
+        self.logger = logger or LoggerBot.get_logger()
+        self.researcher = ResearcherAgent(logger=self.logger)
+        self.summarizer = SummarizerAgent(llm=llm, logger=self.logger)
         
         # Use iterative writer if style guru is enabled
         self.use_style_guru = use_style_guru
         if use_style_guru:
             # Check if style framework exists
             if os.path.exists("intellinews_style_framework.json"):
-                logging.info("✅ Style Guru enabled - using IterativeWriterAgent")
-                self.writer = IterativeWriterAgent(llm=llm, max_iterations=5, score_threshold=score_threshold)
+                self.logger.info("✅ Style Guru enabled - using IterativeWriterAgent")
+                self.writer = IterativeWriterAgent(llm=llm, max_iterations=5, score_threshold=score_threshold, logger=self.logger)
             else:
-                logging.warning("⚠️ Style framework not found. Run setup_style_guru.py first!")
-                logging.info("   Falling back to regular WriterAgent")
-                self.writer = WriterAgent(llm=llm)
+                self.logger.warning("⚠️ Style framework not found. Run setup_style_guru.py first!")
+                self.logger.info("   Falling back to regular WriterAgent")
+                self.writer = WriterAgent(llm=llm, logger=self.logger)
                 self.use_style_guru = False
         else:
-            logging.info("Style Guru disabled - using regular WriterAgent")
-            self.writer = WriterAgent(llm=llm)
+            self.logger.info("Style Guru disabled - using regular WriterAgent")
+            self.writer = WriterAgent(llm=llm, logger=self.logger)
         
-        self.editor = EditorReflectorAgent(llm=llm)
-        self.publisher = PublisherAgent()
+        self.editor = EditorReflectorAgent(llm=llm, logger=self.logger)
+        self.publisher = PublisherAgent(logger=self.logger)
         
         self.agent_map = {
             "research": self.researcher,
@@ -59,10 +60,10 @@ class OrchestratorAgent(Runnable):
         self.memory = []
 
     def invoke(self, input: dict, config=None) -> str:
-        logging.info("--- Orchestrator Agent Starting Workflow ---")
+        self.logger.info("--- Orchestrator Agent Starting Workflow ---")
         
         if self.use_style_guru:
-            logging.info("🎨 STYLE GURU MODE: Articles will be iteratively refined")
+            self.logger.info("🎨 STYLE GURU MODE: Articles will be iteratively refined")
         
         user_goal = input.get("input")
         self.memory.append(HumanMessage(content=user_goal))
@@ -71,22 +72,22 @@ class OrchestratorAgent(Runnable):
         is_prewritten = "source_content" in input and not input.get("source_url")
         
         if is_prewritten:
-            logging.info("📄 PRE-WRITTEN ARTICLE DETECTED")
+            self.logger.info("📄 PRE-WRITTEN ARTICLE DETECTED")
             return self._handle_prewritten_article(input)
         
         # 1. Plan (for non-pre-written articles)
-        logging.info("Orchestrator: 🧠 Planning the workflow...")
+        self.logger.info("Orchestrator: 🧠 Planning the workflow...")
         plan_prompt = [
             SystemMessage(content=rules.ORCHESTRATOR_SYSTEM_PROMPT),
             HumanMessage(content=user_goal)
         ]
         plan_response = self.llm.invoke(plan_prompt)
-        logging.info(f"Orchestrator: 📝 Plan received from LLM")
+        self.logger.info("Orchestrator: 📝 Plan received from LLM")
         
         try:
             plan = safe_load_json(plan_response.content)
         except (json.JSONDecodeError, ValueError) as e:
-            logging.error(f"Orchestrator: ❌ Failed to parse plan from LLM: {e}")
+            self.logger.error(f"Orchestrator: ❌ Failed to parse plan from LLM: {e}")
             return f"Error: Could not decode the workflow plan. {e}"
 
         # 2. Execute Plan
@@ -95,14 +96,14 @@ class OrchestratorAgent(Runnable):
             agent_name = step["agent"]
             agent_input = step["task"]
             
-            logging.info(f"Orchestrator: 🔄 Step {i+1}: Delegating to {agent_name.title()} Agent.")
+            self.logger.info(f"Orchestrator: 🔄 Step {i+1}: Delegating to {agent_name.title()} Agent.")
             
             # Substitute context from previous steps
             for key, value in agent_input.items():
                 if isinstance(value, str) and value.startswith("{") and value.endswith("}"):
                     lookup_key = value.strip("{}")
                     agent_input[key] = context.get(lookup_key)
-                    logging.info(f"Orchestrator:  dynamically setting '{key}' from context.")
+                    self.logger.debug(f"Orchestrator:  dynamically setting '{key}' from context.")
 
             if agent_name in self.agent_map:
                 agent = self.agent_map[agent_name]
@@ -111,27 +112,27 @@ class OrchestratorAgent(Runnable):
                 # For iterative writer, extract the final article
                 if agent_name == "write" and self.use_style_guru and isinstance(result, dict):
                     if result.get("success"):
-                        logging.info(f"Orchestrator: ✅ Article accepted after {result.get('iterations')} iterations")
-                        logging.info(f"Orchestrator:    Final score: {result.get('score'):.3f}")
+                        self.logger.info(f"Orchestrator: ✅ Article accepted after {result.get('iterations')} iterations")
+                        self.logger.info(f"Orchestrator:    Final score: {result.get('score'):.3f}")
                         context[f"step_{i+1}_output"] = result["final_article"]
                         
                         # Log iteration history
                         for iter_data in result.get("history", []):
-                            logging.info(f"   Iteration {iter_data['iteration']}: Score {iter_data['score']:.3f}")
+                            self.logger.debug(f"   Iteration {iter_data['iteration']}: Score {iter_data['score']:.3f}")
                     else:
-                        logging.warning(f"Orchestrator: ⚠️ Article did not reach threshold after {result.get('iterations')} iterations")
-                        logging.warning(f"Orchestrator:    Best score: {result.get('score'):.3f}")
+                        self.logger.warning(f"Orchestrator: ⚠️ Article did not reach threshold after {result.get('iterations')} iterations")
+                        self.logger.warning(f"Orchestrator:    Best score: {result.get('score'):.3f}")
                         context[f"step_{i+1}_output"] = result["final_article"]
                 else:
                     context[f"step_{i+1}_output"] = result
                 
                 self.memory.append(HumanMessage(content=f"Step {i+1} ({agent_name}): completed"))
-                logging.info(f"Orchestrator: ✅ Step {i+1} completed.")
+                self.logger.info(f"Orchestrator: ✅ Step {i+1} completed.")
             else:
                 context[f"step_{i+1}_output"] = f"Error: Agent '{agent_name}' not found."
-                logging.error(f"Orchestrator: ❌ Agent '{agent_name}' not found.")
+                self.logger.error(f"Orchestrator: ❌ Agent '{agent_name}' not found.")
 
-        logging.info("--- Orchestrator Workflow Complete ---")
+        self.logger.info("--- Orchestrator Workflow Complete ---")
         return context.get(f"step_{len(plan)}_output", "Workflow finished with no final output.")
 
     def _handle_prewritten_article(self, input: dict) -> str:
@@ -143,49 +144,49 @@ class OrchestratorAgent(Runnable):
         username = input.get("username")
         password = input.get("password")
         
-        logging.info("\n" + "="*70)
-        logging.info("PRE-WRITTEN ARTICLE WORKFLOW")
-        logging.info("="*70)
+        self.logger.info("\n" + "="*70)
+        self.logger.info("PRE-WRITTEN ARTICLE WORKFLOW")
+        self.logger.info("="*70)
         
         # Step 1: Score with Style Guru (informational only)
         if self.use_style_guru and STYLE_GURU_AVAILABLE:
-            logging.info("\n[1/3] 📊 Scoring pre-written article with Style Guru...")
-            logging.info("   (This is informational only - article will not be modified)")
+            self.logger.info("\n[1/3] 📊 Scoring pre-written article with Style Guru...")
+            self.logger.info("   (This is informational only - article will not be modified)")
             
             try:
                 score, feedback = score_article(source_content)
-                logging.info(f"\n✨ STYLE GURU SCORE: {score:.3f}/1.00")
-                logging.info("\n" + "─"*70)
-                logging.info("FEEDBACK SUMMARY:")
-                logging.info("─"*70)
+                self.logger.info(f"\n✨ STYLE GURU SCORE: {score:.3f}/1.00")
+                self.logger.info("\n" + "─"*70)
+                self.logger.info("FEEDBACK SUMMARY:")
+                self.logger.info("─"*70)
                 # Log just the first part of feedback (not the whole thing)
                 feedback_lines = feedback.split('\n')[:15]
                 for line in feedback_lines:
-                    logging.info(line)
-                logging.info("─"*70)
+                    self.logger.info(line)
+                self.logger.info("─"*70)
                 
                 if score >= 0.80:
-                    logging.info("✅ Article meets quality threshold!")
+                    self.logger.info("✅ Article meets quality threshold!")
                 else:
-                    logging.info(f"⚠️ Article scored {score:.2f}, below quality threshold (0.80)")
-                    logging.info("   However, pre-written articles are submitted as-is")
+                    self.logger.warning(f"⚠️ Article scored {score:.2f}, below quality threshold (0.80)")
+                    self.logger.info("   However, pre-written articles are submitted as-is")
                 
             except Exception as e:
-                logging.warning(f"⚠️ Could not score article: {e}")
+                self.logger.error(f"⚠️ Could not score article: {e}", exc_info=True)
         else:
-            logging.info("\n[1/3] ⚠️ Style Guru not available - skipping scoring")
+            self.logger.info("\n[1/3] ⚠️ Style Guru not available - skipping scoring")
         
         # Step 2: Generate metadata (using Editor agent)
-        logging.info("\n[2/3] 📝 Generating metadata...")
+        self.logger.info("\n[2/3] 📝 Generating metadata...")
         editor_input = {
             "draft_article": source_content,
             "source_content": source_content  # Same as draft for pre-written
         }
         article_json = self.editor.invoke(editor_input)
-        logging.info("✅ Metadata generated")
+        self.logger.info("✅ Metadata generated")
         
         # Step 3: Publish
-        logging.info("\n[3/3] 🚀 Publishing to CMS...")
+        self.logger.info("\n[3/3] 🚀 Publishing to CMS...")
         publisher_input = {
             "article_json_string": article_json,
             "username": username,
@@ -193,9 +194,9 @@ class OrchestratorAgent(Runnable):
         }
         result = self.publisher.invoke(publisher_input)
         
-        logging.info("\n" + "="*70)
-        logging.info("✅ PRE-WRITTEN ARTICLE WORKFLOW COMPLETE")
-        logging.info("="*70)
+        self.logger.info("\n" + "="*70)
+        self.logger.info("✅ PRE-WRITTEN ARTICLE WORKFLOW COMPLETE")
+        self.logger.info("="*70)
         
         return result
     
@@ -209,22 +210,22 @@ class OrchestratorAgent(Runnable):
         if not source_url:
             return {"error": "No source URL provided"}
         
-        logging.info("\n" + "="*70)
-        logging.info("REWRITE ONLY WORKFLOW")
-        logging.info("="*70)
-        logging.info(f"Source URL: {source_url}")
+        self.logger.info("\n" + "="*70)
+        self.logger.info("REWRITE ONLY WORKFLOW")
+        self.logger.info("="*70)
+        self.logger.info(f"Source URL: {source_url}")
         
         # Step 1: Research (scrape URL)
-        logging.info("\n[1/3] 📡 Scraping URL...")
+        self.logger.info("\n[1/3] 📡 Scraping URL...")
         source_content = self.researcher.invoke({"source_url": source_url})
         
         if isinstance(source_content, dict) and "error" in source_content:
             return source_content
         
-        logging.info(f"✅ Scraped {len(source_content)} characters")
+        self.logger.info(f"✅ Scraped {len(source_content)} characters")
         
         # Step 2: Write with Style Guru
-        logging.info("\n[2/3] ✍️ Writing article with Style Guru...")
+        self.logger.info("\n[2/3] ✍️ Writing article with Style Guru...")
         writer_input = {
             "source_content": source_content,
             "user_prompt": "Write a news article based on this content"
@@ -258,8 +259,8 @@ class OrchestratorAgent(Runnable):
                     last_entry = history[-1]
                     feedback = last_entry.get("feedback", "")
                 
-                logging.info(f"\n✅ Article completed after {iterations} iterations")
-                logging.info(f"   Final score: {score:.3f}")
+                self.logger.info(f"\n✅ Article completed after {iterations} iterations")
+                self.logger.info(f"   Final score: {score:.3f}")
             else:
                 # Handle failure case
                 article = result.get("final_article", "")
@@ -271,7 +272,7 @@ class OrchestratorAgent(Runnable):
             feedback = "Style Guru not available"
         
         # Step 3: Parse component scores from feedback
-        logging.info("\n[3/3] 📊 Extracting component scores...")
+        self.logger.info("\n[3/3] 📊 Extracting component scores...")
         
         if feedback:
             import re
@@ -289,7 +290,7 @@ class OrchestratorAgent(Runnable):
                 match = re.search(pattern, feedback, re.IGNORECASE)
                 if match:
                     component_scores[component] = float(match.group(1))
-                    logging.info(f"   Extracted {component}: {component_scores[component]:.2f}")
+                    self.logger.debug(f"   Extracted {component}: {component_scores[component]:.2f}")
         
         # Clean up the article - remove any feedback that might have leaked in
         if article:
@@ -314,12 +315,12 @@ class OrchestratorAgent(Runnable):
             
             article = '\n'.join(cleaned_lines).strip()
         
-        logging.info("\n" + "="*70)
-        logging.info("✅ REWRITE COMPLETE")
-        logging.info(f"   Article length: {len(article)} characters")
-        logging.info(f"   Score: {score:.3f}")
-        logging.info(f"   Component scores extracted: {sum(1 for v in component_scores.values() if v > 0)}/5")
-        logging.info("="*70)
+        self.logger.info("\n" + "="*70)
+        self.logger.info("✅ REWRITE COMPLETE")
+        self.logger.info(f"   Article length: {len(article)} characters")
+        self.logger.info(f"   Score: {score:.3f}")
+        self.logger.info(f"   Component scores extracted: {sum(1 for v in component_scores.values() if v > 0)}/5")
+        self.logger.info("="*70)
         
         return {
             "article": article,

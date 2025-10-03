@@ -16,7 +16,6 @@ def load_style_framework() -> Dict:
         with open("intellinews_style_framework.json", "r", encoding="utf-8") as f:
             return json.load(f)
     except FileNotFoundError:
-        print("⚠️ Style framework not found. Run deep_analyzer.py first.")
         return {}
 
 
@@ -32,7 +31,6 @@ def statistical_score(article_text: str) -> float:
         score = agent.predict(feats)[0, 0]
         return float(np.clip(score, 0, 1))
     except Exception as e:
-        print(f"⚠️ Statistical scoring failed: {e}")
         return 0.5  # Default to neutral score
 
 
@@ -145,7 +143,6 @@ STRENGTHS:
         return overall_score, feedback
         
     except Exception as e:
-        print(f"⚠️ LLM scoring failed: {e}")
         return 0.5, f"LLM scoring failed: {e}"
 
 
@@ -154,29 +151,17 @@ def score_article(article_text: str) -> Tuple[float, str]:
     Score an article using both statistical and LLM-based methods.
     Returns (combined_score, detailed_feedback).
     """
-    print("\n" + "─"*70)
-    print("SCORING ARTICLE AGAINST INTELLINEWS STYLE")
-    print("─"*70)
-    
     # Load framework
     framework = load_style_framework()
     
     # Statistical score (30% weight)
-    print("\n[1/2] Running statistical analysis...")
     stat_score = statistical_score(article_text)
-    print(f"   Statistical Score: {stat_score:.3f}")
     
     # LLM score (70% weight - more reliable)
-    print("\n[2/2] Running LLM-based analysis...")
     llm_score, llm_feedback = llm_based_score(article_text, framework)
-    print(f"   LLM Score: {llm_score:.3f}")
     
     # Combined score
     combined_score = (stat_score * 0.3) + (llm_score * 0.7)
-    
-    print("\n" + "─"*70)
-    print(f"FINAL COMBINED SCORE: {combined_score:.3f}/1.00")
-    print("─"*70)
     
     # Add statistical score to feedback
     full_feedback = f"""

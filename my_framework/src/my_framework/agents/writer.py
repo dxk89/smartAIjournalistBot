@@ -2,9 +2,21 @@
 
 from my_framework.core.runnables import Runnable
 from my_framework.models.base import BaseChatModel
-# UPDATED IMPORT PATH
-from my_framework.tools.llm_calls import get_initial_draft
+from my_framework.core.schemas import SystemMessage, HumanMessage
+from my_framework.apps import rules
 from my_framework.agents.loggerbot import LoggerBot
+
+def get_initial_draft(llm: BaseChatModel, user_prompt: str, source_content: str, logger=None) -> str:
+    """This function lives here to prevent circular imports."""
+    log = logger or LoggerBot.get_logger()
+    log.debug("-> Building prompt for initial draft.")
+    draft_prompt = [
+        SystemMessage(content=rules.WRITER_SYSTEM_PROMPT),
+        HumanMessage(content=f"ADDITIONAL PROMPT INSTRUCTIONS: \"{user_prompt}\"\n\nSOURCE CONTENT:\n---\n{source_content[:8000]}\n---\n\nWrite the initial draft of the article now.")
+    ]
+    log.info("-> Sending request to LLM for initial draft...")
+    draft_response = llm.invoke(draft_prompt)
+    return draft_response.content
 
 class WriterAgent(Runnable):
     """

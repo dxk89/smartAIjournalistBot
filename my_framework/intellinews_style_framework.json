@@ -2,146 +2,151 @@
   "framework": {
     "core_principles": [
       "Maintain objectivity and neutrality in reporting.",
-      "Use precise and clear language to enhance readability.",
-      "Incorporate expert opinions and analysis to add depth.",
-      "Provide historical context to frame current events.",
-      "Balance quantitative data with qualitative insights.",
+      "Use precise and accurate data to support claims.",
+      "Ensure clarity and coherence in paragraph structure.",
+      "Integrate quotes seamlessly to enhance credibility.",
+      "Employ formal and analytical tone throughout.",
+      "Provide context through historical or comparative analysis.",
       "Use concrete examples to illustrate points.",
-      "Highlight contrasts or contradictions to provide clarity.",
-      "Employ cause-and-effect reasoning to explain developments.",
-      "Ensure all data is sourced from credible organizations.",
-      "Integrate quotes seamlessly to support the narrative."
+      "Attribute information to credible sources.",
+      "Highlight implications or future outlooks where relevant.",
+      "Avoid speculation and unverified information."
     ],
     "sentence_patterns": [
       {
         "pattern": "Subject + active verb + object",
-        "example": "The government announced new economic reforms."
+        "example": "Kaztransoil announced the shipment."
       },
       {
         "pattern": "Subject + verb + prepositional phrase",
-        "example": "The report was released by the Ministry of Finance."
+        "example": "Kazakhstan exported oil to Germany."
       },
       {
-        "pattern": "Introductory clause + main clause",
-        "example": "Despite economic challenges, the country achieved growth."
+        "pattern": "Subject + verb + conjunction + clause",
+        "example": "The group said smuggling activity has surged."
       },
       {
-        "pattern": "Subject + verb + direct object + indirect object",
-        "example": "The company offered investors a detailed report."
+        "pattern": "Introductory phrase + subject + verb + object",
+        "example": "Following the announcement, the company revised its forecast."
       },
       {
-        "pattern": "Complex sentences with dependent and independent clauses",
-        "example": "While the economy is growing, unemployment remains high."
+        "pattern": "Subject + passive verb + by agent",
+        "example": "The rally was fueled by renewed bets."
       }
     ],
     "vocabulary_guide": {
       "always_use": [
-        "economic diversification",
-        "bilateral trade",
-        "financial constraints",
-        "regulatory approval",
-        "political struggles"
+        "announced",
+        "reported",
+        "highlighted",
+        "emphasized",
+        "warned"
       ],
       "often_use": [
-        "indicate",
-        "highlight",
-        "report",
-        "project",
-        "forecast"
+        "expressed",
+        "allocated",
+        "approved",
+        "introduced",
+        "secured"
       ],
       "never_use": [
-        "slang",
-        "colloquialisms",
-        "overly technical jargon without explanation",
-        "emotional language"
+        "claimed",
+        "alleged",
+        "supposed",
+        "rumored",
+        "hinted"
       ]
     },
     "lead_formula": [
-      "Start with a significant event or decision.",
-      "Introduce a key figure or entity involved.",
-      "Present a problem or challenge faced.",
-      "Highlight a recent development or change in policy.",
-      "Set the scene with geographical or political context."
+      "Start with a direct statement of a key event or development.",
+      "Introduce significant figures or authorities involved.",
+      "Provide context or background information.",
+      "Highlight the impact or implications of the event.",
+      "Example: 'Kazakhstan's central bank announced a new monetary policy on October 2, aiming to stabilize the national currency amid rising inflation.'"
     ],
     "attribution_rules": [
-      "Use phrases like 'according to', 'as reported by', and 'said'.",
-      "Cite sources with specific references to organizations or individuals.",
-      "Include the speaker's name and position for direct quotes.",
-      "Provide context for the authority of the source.",
-      "Example: 'According to the Ministry of Energy, the new policy will...'"
+      "Use phrases like 'according to', 'reported by', or 'citing official data'.",
+      "Attribute direct quotes to named individuals or organizations.",
+      "Mention the source publication or agency for credibility.",
+      "For anonymous sources, provide a reason for anonymity.",
+      "Example: 'According to Reuters, the new policy is expected to boost economic growth.'"
     ],
     "tone_guidelines": [
-      "Maintain an objective and neutral tone throughout.",
-      "Be informative and analytical, avoiding emotional language.",
-      "Use formal language appropriate for a professional audience.",
-      "Ensure the tone is factual and cautious when necessary."
+      "Maintain a formal and objective tone.",
+      "Be informative and analytical, avoiding personal opinions.",
+      "Ensure neutrality, especially in contentious topics.",
+      "Use concise language to convey information clearly.",
+      "Avoid sensationalism or emotional language."
     ],
     "structure_template": [
-      "Lead: Use the lead formula to introduce the main topic.",
-      "Body: Develop the story with supporting details, data, and quotes.",
-      "Analysis: Provide expert opinions and historical context.",
-      "Conclusion: Summarize key points and suggest implications or future developments."
+      "Lead: Introduce the main event or development.",
+      "Background: Provide context or historical information.",
+      "Details: Elaborate on the event with data and quotes.",
+      "Analysis: Discuss implications or potential outcomes.",
+      "Conclusion: Summarize key points and future outlooks."
     ],
     "style_nuances": [
-      "Use transitions like 'However', 'Meanwhile', and 'Furthermore' to maintain flow.",
-      "Present numbers and statistics with precision and context.",
-      "Integrate quotes to provide authority and perspective.",
-      "Highlight trends and contrasts to enhance understanding."
+      "Use specific figures and percentages for precision.",
+      "Integrate data into the narrative to support claims.",
+      "Employ transitions like 'However', 'Furthermore', and 'In addition' for coherence.",
+      "Focus each paragraph on a single aspect of the topic.",
+      "Conclude paragraphs with a sentence that ties back to the main idea."
     ],
     "common_mistakes": [
-      "Using slang or colloquial language.",
-      "Failing to provide context for data or quotes.",
-      "Overusing technical jargon without explanation.",
-      "Allowing bias or emotional language to influence tone."
+      "Using vague or unverified information.",
+      "Failing to attribute sources properly.",
+      "Overusing passive voice, which can obscure responsibility.",
+      "Including personal opinions or biases.",
+      "Neglecting to provide context for data or quotes."
     ],
     "quality_checklist": [
       "Verify all data and statistics for accuracy.",
-      "Ensure all sources are credible and properly cited.",
-      "Check for clarity and conciseness in language.",
-      "Review for objectivity and neutrality in tone.",
-      "Confirm that quotes are integrated and attributed correctly."
+      "Ensure all sources are credible and properly attributed.",
+      "Check for clarity and coherence in paragraph structure.",
+      "Review for consistent tone and style throughout.",
+      "Confirm that the article provides a balanced perspective."
     ]
   },
   "example_articles": [
     {
-      "title": "EU presses ahead with December signing of divisive Mercosur deal",
-      "opening_paragraph": "The European Commission is gearing up to sign its contentious trade agreement with South American bloc Mercosur on December 5 in Brazil, according to four EU diplomats who spoke to Politico, possibly sealing the fate of an accord that has languished in negotiations for more than a quarter-century.The proposed timeline would see EU ambassadors deliberate on the agreement on December 3 before a formal signing ceremony during a planned EU-Mercosur summit in Brazil two days later, the diplomats told"
+      "title": "Tehran Friday prayers speaker says Iran will plough Tel Aviv and Haifa",
+      "opening_paragraph": "Iran's temporary Friday prayer leader has declared that demands to halt uranium enrichment are 'unacceptable', saying that the Islamic Republic will not submit to US and European pressure.Firebrand cleric Ahmad Khatami, speaking during the second sermon of Tehran’s Friday prayers on October 3, echoed Supreme Leader Ali Khamenei’s stance on the necessity of uranium enrichment for medical, agricultural, and environmental purposes, ISNA reported on October 3.“If any person or government says ‘no en"
     },
     {
-      "title": "September PMI confirms Turkish manufacturers have struggled with rough times for year and half",
-      "opening_paragraph": "Turkish manufacturers continued to suffer a challenging demand environment in September, according to the Istanbul Chamber of Industry Türkiye Manufacturing Purchasing Managers’ Index (PMI) released on October 1 by S&P Global.Business conditions in Turkey’s manufacturing industry have now moderated on a monthly basis for a year-and-a-half.The headline PMI posted 46.7 in September, down from 47.3 in August (any figure below 50.9 denotes a deterioration).The September data indicates further slowdo"
+      "title": "Tanzania pushes for $42bn LNG deal with Shell, Equinor by end-2025 after decades of delays",
+      "opening_paragraph": "Tanzania is moving closer to finalising terms for a $42bn liquefied natural gas (LNG) project at Likong’o in Lindi, with a deal expected before the end of 2025, the state-owned Daily News reported.The development has been under negotiation for more than a decade and is intended to anchor one of the largest energy investments in Africa. The plan envisages output of up to 10mn tonnes of LNG annually, drawing on offshore reserves operated by Shell (UK, Blocks 1 & 4) and Equinor (Norway, Block 2).Bl"
     },
     {
-      "title": "Mexican tycoon Carlos Slim invests $2bn in Veracruz oil field as Pemex drowns in debt",
-      "opening_paragraph": "Mexican businessman Carlos Slim, the country's richest man, has expanded his involvement in the country's hydrocarbons sector through a new drilling agreement with state-owned oil company Petróleos Mexicanos (Pemex). His conglomerate Grupo Carso confirmed it will invest up to $1.991bn in the development of 32 wells at the Ixachi onshore field in Veracruz.The contract, signed through Carso subsidiaries GSM Bronco and MX DLTA NRG 1, covers a three-year programme for drilling and completion. Accord"
+      "title": "Water scarcity forces a rethink of Tehran's dominance",
+      "opening_paragraph": "When Iran’s President Masoud Pezeshkian broached the idea of relocating Iran's capital southward to the Persian Gulf coast in 2024, he was ridiculed. This year, on October 1, during a visit to Hormozgan province, Iran's president returned to the theme with renewed urgency. The proposal, he insisted, is no longer a matter of choice but of survival. Tehran is running out of water­ — fast.A plan to move the economic and political capital of more than 9mn people in the main metropolitan area has bee"
     },
     {
-      "title": "NG.Cash wins Brazil credit licence",
-      "opening_paragraph": "Brazilian neobank NG.Cash has secured regulatory approval to operate as a direct credit company after acquiring BizCapital’s licence, the firm said in a press release.The Central Bank concluded the authorisation process this year, finalising a transaction that began in 2023. The entity is now formally registered as NG.Cash Sociedade de Crédito Direto S.A.Launched in 2018 as Neagle Bank and renamed in 2021, NG.Cash focuses on Generation Z customers. Its platform provides a digital account, prepai"
+      "title": "Botala Energy posts wider loss, sets 2027/28 target for first gas in Botswana",
+      "opening_paragraph": "Botala Energy (ASX: BTE, BSE: BOTALA) has reported a wider annual loss as it advances efforts to monetise coal bed methane (CBM) reserves in Botswana. The Australian junior posted a net after-tax loss of AUD 2.91mn (about $1.9mn) for the year to June 30, compared with AUD 2.07mn in the prior period, according to its annual report.“Over the last 12 months, Botala has achieved a series of important milestones that continue our transition from an exploration-focused business to a developer and prod"
     },
     {
-      "title": "Somalia to launch first oil drilling campaign within months, after decades of exploration, says president",
-      "opening_paragraph": "Somalia’s President Hassan Sheikh Mohamud has announced the launch of the country’s first-ever oil drilling campaign in the coming months, local outlet Shabelle Media Network reported.Mohamud said the exploration campaign represented a vital step in Somalia’s efforts to unlock its potentially vast hydrocarbon resources and lay the foundations for long-term economic growth, signalling the start of a new chapter for the Horn of Africa country. “For the first time, Somalia will begin drilling a wel"
+      "title": "LONG READ: Trade is the glue that holds Global Emerging Markets Institutions together",
+      "opening_paragraph": "The world order is changing. The emerging markets are coming of age and they are setting up a raft of largely non-Western Global Emerging Markets Institutions (GEMIs) to coordinate their lives.An alphabet soup of organisations has emerged – BRICS+, G20 , the Shanghai Cooperation Organization (SCO), Eurasian Economic Union (EUU), ASEAN (Association of Southeast Asian Nations), the African Union, to name a few – but unlike their Developed Market (DM) peers, these organisations remain immature and "
     },
     {
-      "title": "Slovenia confronts its ageing challenge with contested pension reform",
-      "opening_paragraph": "The battle over the comprehensive reform of Slovenia’s pension system is shaping up to be one of the small country’s defining political struggles of the decade.The overhaul of the pension system in Slovenia, an EU country with a population of slightly over 2mn, has been discussed for years as a response to the country’s ageing population. However, the reform, hailed by the government as a long-overdue step towards securing sustainable public finances, is seen by critics as an unfair burden on wo"
+      "title": "Kazakhstan appoints AI board member to sovereign wealth fund, awards voting rights",
+      "opening_paragraph": "Kazakhstan’s sovereign wealth fund, Samruk-Kazyna, on October 2 unveiled an artificial intelligence-based member of its board of directors, complete with voting rights.The Samruk-Kazyna Artificial Intelligence Neural Network, known as SKAI, was introduced to the country’s president, Kassym-Jomart Tokayev, on October 2 during the Digital Bridge 2025 international tech forum held in Astana. One of the guests, Telegram cross-platform founder Pavel Durov, used the event to announce the creation of a"
     },
     {
-      "title": "Afghanistan grinds to a halt as Taliban cuts off internet",
-      "opening_paragraph": "A sweeping internet shutdown across Afghanistan by the Taliban authorities has paralysed cross-border trade and disconnected millions of web users in what has been described as a disaster for the country.At the Dogharoun border crossing, nearly 800 Iranian and Afghan lorries were stranded mounting further problems with perishable food items beginning to perish in the heat while emergency items including medical supplies were also held up, according to Iranian media.The blackout stems from a nati"
+      "title": "Ukraine warns Poland over President Nawrocki’s bill targeting nationalist symbols",
+      "opening_paragraph": "Ukraine will be “forced to take retaliatory measures” if Poland passes a bill equating the Ukrainian nationalist movement with Nazism and communism, Ukrainian historians said on October 1.The episode marks the latest flare-up in tensions between the two allies over the legacy of the Second World War and the Volhynia massacres, in which around 100,000 ethnic Poles were killed by Ukrainian nationalists.Nawrocki this week submitted legislation that would expand Poland’s criminal code, which already"
     },
     {
-      "title": "VISEGRAD BLOG: Will Czechia drift into Slovak and Hungarian direction after this week’s elections?",
-      "opening_paragraph": "Czechia’s largest opposition party, billionaire ex-prime minister Andrej Babiš’ populist ANO, is widely expected to win the parliamentary elections scheduled for October 3-4. This would be a remarkable comeback after Babiš was narrowly ousted by a bloc of pro-Western parties in 2021 on the back of mass protests against his cabinet.With ANO’s return looking highly likely, the question now is what direction the party will lead Czechia in. Specifically, whether Czechia will join its neighbour Slova"
+      "title": "Venezuela accuses US of flying combat jets near its waters",
+      "opening_paragraph": "Venezuelan authorities have condemned what they describe as an unauthorised US military operation near the country's Caribbean waters, with officials in Caracas calling the incident a serious breach of international aviation law. Defence Minister Vladimir Padrino said on October 2 that radar systems had tracked five American F-35 combat aircraft at high altitude approximately 75 kilometres off earlier the same day. 'They are combat aircraft. Combat aircraft that US imperialism has dared to appro"
     },
     {
-      "title": "Milei to meet Trump at White House as Argentina seeks $20bn swap before election",
-      "opening_paragraph": "Argentine President Javier Milei will meet US President Donald Trump at the White House on October 14, less than two weeks before congressional elections that could determine the fate of the libertarian leader's economic reforms.The bilateral meeting, confirmed by Argentina's foreign ministry on September 30, follows a previous one on the sidelines of the UNGA last week and represents the latest sign of deepening ties between the ideological allies as Washington deploys an array of financial ins"
+      "title": "Uganda and Sudan strengthen military cooperation amid regional security concerns",
+      "opening_paragraph": "Uganda’s Chief of Defence Forces, General Muhoozi Kainerugaba, has met Sudan’s Ambassador to Uganda, Ahmed Ibrahim Ahmed, at the Special Forces Command headquarters in Entebbe to discuss restoring and strengthening military cooperation between the two countries, NilePost reported. 'Uganda has consistently demonstrated commitment to regional peace and stability. We are eager to restore and strengthen military cooperation between our two countries,' Ahmed is quoted as saying. Kainerugaba welcomed "
     },
     {
-      "title": "Landmark US–Africa trade deal expires, threatening thousands of jobs",
-      "opening_paragraph": "The expiration of the African Growth and Opportunity Act (AGOA) on September 30 has left exporters across sub-Saharan Africa bracing for sharp losses, as Washington failed to extend the long-running trade preference scheme. Without renewal, African governments and companies warn they will be forced to seek alternative markets or negotiate bilateral deals to preserve access.Introduced in 2000 under President Bill Clinton, the programme gave countries duty-free access to more than 6,800 tariff lin"
+      "title": "Hungarian PM isolated at EU summit over Ukraine stance",
+      "opening_paragraph": "Hungarian Prime Minister Viktor Orban was increasingly isolated at the informal EU summit in Copenhagen, his sharply critical stance on the idea of financing aid to Ukraine from frozen Russian assets contrasting with the positions of fellow EU leaders. At the summit, Belgian Prime Minister Bart De Wever urged EU leaders to guarantee that they will jointly bear the risks of using frozen Russian assets, most of which are held in Belgium, to finance loans for Ukraine. All leaders except Orban backe"
     }
   ],
   "version": "2.0",

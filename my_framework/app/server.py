@@ -5,6 +5,7 @@ import os
 import threading
 import json
 import asyncio
+import queue
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, WebSocket, Request, BackgroundTasks
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -36,6 +37,7 @@ except ImportError as e:
 
 logger = LoggerBot.get_logger()
 active_connections: list[WebSocket] = []
+style_guru_updating = False
 
 async def log_sender():
     """Monitors the log queue and sends new logs to all connected WebSockets."""
@@ -101,6 +103,42 @@ async def invoke_run(request: dict):
     return {"output": "Orchestrator process started. Monitor the UI or console for live logs."}
 
 
+# --- NEW: Rewrite Endpoint ---
+@app.post("/rewrite", summary="Rewrite an article from a URL")
+async def rewrite_article(request: dict):
+    """
+    This endpoint handles rewriting an article from a URL without publishing.
+    """
+    config_data = request.get("input", {})
+    source_url = config_data.get("source_url")
+    api_key = config_data.get("openai_api_key")
+
+    if not source_url or not api_key:
+        raise HTTPException(status_code=400, detail="Source URL and OpenAI API key are required.")
+
+    logger.info("=" * 70)
+    logger.info("API /rewrite REQUEST RECEIVED")
+    logger.info(f"Source URL: {source_url}")
+    logger.info("=" * 70)
+
+    try:
+        # Since rewrite_only is synchronous, we run it in a thread
+        def run_rewrite():
+            llm = ChatOpenAI(model_name="gpt-4o", temperature=0.5, api_key=api_key)
+            orchestrator = OrchestratorAgent(llm=llm, use_style_guru=True, logger=logger)
+            return orchestrator.rewrite_only({"source_url": source_url})
+
+        result = await asyncio.to_thread(run_rewrite)
+        
+        if "error" in result:
+            raise HTTPException(status_code=500, detail=result["error"])
+            
+        return result
+
+    except Exception as e:
+        logger.critical(f"🔥 Rewrite workflow failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+        
 # --- FastAPI Event Handlers & Other Routes ---
 
 @app.on_event("startup")
@@ -124,7 +162,6 @@ async def websocket_endpoint(websocket: WebSocket):
         logger.info(f"WebSocket connection closed for: {websocket.client.host}")
         active_connections.remove(websocket)
 
-# [ ... All your other endpoints like /rewrite, /update-style-guru, etc., remain unchanged ... ]
 # --- Style Guru Update Endpoint ---
 def update_style_guru_background(num_articles: int = 100):
     """Background task to update the style guru framework."""
@@ -201,7 +238,7 @@ async def style_guru_status():
     
     if framework_exists:
         try:
-            with open(framework_path, "r") as f:
+            with open(framework_path, "r", encoding="utf-8") as f:
                 framework = json.load(f)
                 status["articles_analyzed"] = framework.get("articles_analyzed", "unknown")
                 status["version"] = framework.get("version", "unknown")
@@ -226,7 +263,7 @@ async def style_guru_admin(request: Request):
     
     if framework_exists:
         try:
-            with open(framework_path, "r") as f:
+            with open(framework_path, "r", encoding="utf-8") as f:
                 framework = json.load(f)
                 framework_info["articles_analyzed"] = framework.get("articles_analyzed", "unknown")
                 framework_info["version"] = framework.get("version", "unknown")
@@ -237,7 +274,8 @@ async def style_guru_admin(request: Request):
         except Exception as e:
             logger.error(f"Error reading framework: {e}")
     
-    return templates.TemplateResponse("styleguru.html", {
+    # FIX: Changed to "style-guru.html" to match the new filename
+    return templates.TemplateResponse("style-guru.html", {
         "request": request,
         "framework_info": framework_info,
         "updating": style_guru_updating
@@ -245,7 +283,11 @@ async def style_guru_admin(request: Request):
 
 @app.get("/", response_class=HTMLResponse)
 async def read_index(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse("index.html", {
+        "request": request,
+        "framework_info": {},
+        "updating": False
+    })
 
 @app.get("/test", response_class=HTMLResponse)
 async def test_page(request: Request):
@@ -255,7 +297,7 @@ async def test_page(request: Request):
 @app.get("/websocket-test", response_class=HTMLResponse)
 async def websocket_test_page(request: Request):
     """Serves the new websocket test page"""
-    return templates.TemplateResponse("websocket_test.html", {"request": request})
+    return templates.TemplateResponse("websocket-test.html", {"request": request})
 
 if __name__ == "__main__":
     import uvicorn

@@ -1,11 +1,120 @@
 # File: src/my_framework/agents/editor.py
 
 import json
+from typing import List
 from my_framework.core.runnables import Runnable
 from my_framework.models.base import BaseChatModel
-# UPDATED IMPORT PATH
-from my_framework.tools.llm_calls import get_reflection, get_refined_article, get_seo_metadata
+from my_framework.core.schemas import SystemMessage, HumanMessage
+from my_framework.apps import rules
+from my_framework.parsers.standard import PydanticOutputParser
+from my_framework.apps.schemas import ArticleMetadata
 from my_framework.agents.loggerbot import LoggerBot
+from my_framework.agents.utils import COUNTRY_MAP, PUBLICATION_MAP, INDUSTRY_MAP
+
+# --- LLM Call Functions Moved Here To Prevent Circular Imports ---
+
+def _get_country_selection(llm: BaseChatModel, article_text: str, logger=None) -> List[str]:
+    log = logger or LoggerBot.get_logger()
+    country_names = list(COUNTRY_MAP.keys())
+    prompt = [
+        SystemMessage(content=rules.COUNTRY_SELECTION_SYSTEM_PROMPT),
+        HumanMessage(content=f"AVAILABLE COUNTRIES:\n---\n{country_names}\n---\n\nARTICLE TEXT:\n---\n{article_text[:4000]}\n---")
+    ]
+    response = llm.invoke(prompt)
+    log.debug(f"LLM raw response for countries: '{response.content}'")
+    countries = [name.strip() for name in response.content.split(',') if name.strip() in country_names]
+    return countries
+
+def _get_publication_selection(llm: BaseChatModel, article_text: str, logger=None) -> List[str]:
+    log = logger or LoggerBot.get_logger()
+    publication_names = list(PUBLICATION_MAP.keys())
+    prompt = [
+        SystemMessage(content=rules.PUBLICATION_SELECTION_SYSTEM_PROMPT),
+        HumanMessage(content=f"AVAILABLE PUBLICATIONS:\n---\n{publication_names}\n---\n\nARTICLE TEXT:\n---\n{article_text[:4000]}\n---")
+    ]
+    response = llm.invoke(prompt)
+    log.debug(f"LLM raw response for publications: '{response.content}'")
+    publications = [name.strip() for name in response.content.split(',') if name.strip() in publication_names]
+    return publications
+
+def _get_industry_selection(llm: BaseChatModel, article_text: str, logger=None) -> List[str]:
+    log = logger or LoggerBot.get_logger()
+    industry_names = list(INDUSTRY_MAP.keys())
+    prompt = [
+        SystemMessage(content=rules.INDUSTRY_SELECTION_SYSTEM_PROMPT),
+        HumanMessage(content=f"AVAILABLE INDUSTRIES:\n---\n{industry_names}\n---\n\nARTICLE TEXT:\n---\n{article_text[:4000]}\n---")
+    ]
+    response = llm.invoke(prompt)
+    log.debug(f"LLM raw response for industries: '{response.content}'")
+    industries = [name.strip() for name in response.content.split(',') if name.strip() in industry_names]
+    return industries
+
+def _get_reflection(llm: BaseChatModel, draft_article: str, source_content: str, logger=None) -> str:
+    log = logger or LoggerBot.get_logger()
+    log.info("-> REFLECTION: Performing critique of the draft...")
+    reflection_prompt_content = f"""
+    You are a meticulous editor. Your task is to critique the following draft article based on several criteria.
+    Provide a structured list of specific, actionable feedback points.
+    CRITERIA:
+    1.  **Factual Accuracy**: Compare the draft against the provided SOURCE CONTENT.
+    2.  **Stylistic Adherence**: Review the draft for any violations of the house style guide.
+    3.  **Clarity and Coherence**: Assess the overall flow, structure, and readability.
+    SOURCE CONTENT:\n---\n{source_content[:8000]}\n---\n\nDRAFT ARTICLE TO CRITIQUE:\n---\n{draft_article[:8000]}\n---
+    """
+    messages = [
+        SystemMessage(content=rules.EDITOR_REFLECTION_SYSTEM_PROMPT),
+        HumanMessage(content=reflection_prompt_content)
+    ]
+    response = llm.invoke(messages)
+    log.info("-> REFLECTION: Critique received.")
+    return response.content
+
+def _get_refined_article(llm: BaseChatModel, draft_article: str, reflection_feedback: str, logger=None) -> str:
+    log = logger or LoggerBot.get_logger()
+    log.info("-> REFINEMENT: Rewriting article based on feedback...")
+    refinement_prompt_content = f"""
+    You are a writer tasked with revising an article based on editor feedback.
+    Your goal is to produce a final, polished version of the article that incorporates all the required changes.
+    EDITOR FEEDBACK:\n---\n{reflection_feedback}\n---\n\nORIGINAL DRAFT ARTICLE:\n---\n{draft_article[:8000]}\n---
+    """
+    messages = [
+        SystemMessage(content=rules.EDITOR_REFINEMENT_SYSTEM_PROMPT),
+        HumanMessage(content=refinement_prompt_content)
+    ]
+    response = llm.invoke(messages)
+    log.info("-> REFINEMENT: Final version generated.")
+    return response.content
+
+def _get_seo_metadata(llm: BaseChatModel, revised_article: str, logger=None) -> str:
+    log = logger or LoggerBot.get_logger()
+    log.info("-> Building structured prompt for main SEO metadata...")
+    parser = PydanticOutputParser(pydantic_model=ArticleMetadata)
+    main_metadata_prompt = [
+        SystemMessage(content=rules.SEO_METADATA_SYSTEM_PROMPT),
+        HumanMessage(content=f"{parser.get_format_instructions()}\n\nHere is the article to analyze:\n---\n{revised_article[:8000]}\n---")
+    ]
+    try:
+        response = llm.invoke(main_metadata_prompt)
+        parsed_output = parser.parse(response.content)
+        metadata = parsed_output.model_dump()
+        
+        log.info("   - Getting country selection...")
+        metadata['countries'] = _get_country_selection(llm, revised_article, log)
+        log.info(f"   - Countries selected by LLM: {metadata['countries']}")
+
+        log.info("   - Getting publication selection...")
+        metadata['publications'] = _get_publication_selection(llm, revised_article, log)
+        log.info(f"   - Publications selected by LLM: {metadata['publications']}")
+
+        log.info("   - Getting industry selection...")
+        metadata['industries'] = _get_industry_selection(llm, revised_article, log)
+        log.info(f"   - Industries selected by LLM: {metadata['industries']}")
+        
+        return json.dumps(metadata)
+    except Exception as e:
+        log.error(f"Failed to generate metadata: {e}", exc_info=True)
+        return json.dumps({"error": f"Failed to generate metadata: {e}"})
+
 
 class EditorReflectorAgent(Runnable):
     """
@@ -27,28 +136,22 @@ class EditorReflectorAgent(Runnable):
             self.logger.error("Editor requires 'draft_article' and 'source_content'.")
             return {"error": "Editor requires 'draft_article' and 'source_content'."}
 
-        # If the draft and source are the same, it's a pre-written article.
-        # Skip reflection and refinement.
         if draft_article == source_content:
             self.logger.info("   - Pre-written article detected. Skipping reflection and refinement.")
             refined_article = draft_article
         else:
-            # 1. Reflect
             self.logger.info("   - Critiquing draft...")
-            reflection = get_reflection(self.llm, draft_article, source_content)
+            reflection = _get_reflection(self.llm, draft_article, source_content, self.logger)
             self.logger.debug(f"   - Reflection received: {reflection[:100]}...")
 
-            # 2. Refine
             self.logger.info("   - Refining article based on critique...")
-            refined_article = get_refined_article(self.llm, draft_article, reflection)
+            refined_article = _get_refined_article(self.llm, draft_article, reflection, self.logger)
             self.logger.info("   - Article refined.")
 
-        # 3. Generate final metadata
         self.logger.info("   - Generating SEO metadata...")
-        final_json_string = get_seo_metadata(self.llm, refined_article)
+        final_json_string = _get_seo_metadata(self.llm, refined_article, self.logger)
         self.logger.info("   - SEO metadata generated.")
         
-        # Combine the refined article with its metadata
         try:
             parsed_data = json.loads(final_json_string)
             if "error" in parsed_data:
@@ -60,7 +163,6 @@ class EditorReflectorAgent(Runnable):
             parsed_data["body"] = body_html
 
             return json.dumps(parsed_data)
-        # FIX: Broaden the exception clause to catch any potential errors
         except Exception as e:
             self.logger.error(f"   - Failed to merge refined article with metadata: {e}", exc_info=True)
             return json.dumps({"error": f"Failed to merge refined article with metadata: {e}"})

@@ -16,6 +16,7 @@ def load_style_framework() -> Dict:
         with open("intellinews_style_framework.json", "r", encoding="utf-8") as f:
             return json.load(f)
     except FileNotFoundError:
+        print("⚠️ Style framework not found. Run deep_analyzer.py first.")
         return {}
 
 
@@ -26,11 +27,17 @@ def statistical_score(article_text: str) -> float:
     """
     try:
         feats = text_features(article_text).reshape(1, -1)
+        # Add a check for NaN or infinite values in features
+        if not np.all(np.isfinite(feats)):
+            print("⚠️ Invalid features detected (NaN or infinity). Returning default score.")
+            return 0.5
+
         agent = AdvancedNeuralAgent(input_size=feats.shape[1])
         agent.load("data/model_weights.npz")
         score = agent.predict(feats)[0, 0]
         return float(np.clip(score, 0, 1))
     except Exception as e:
+        print(f"⚠️ Statistical scoring failed: {e}")
         return 0.5  # Default to neutral score
 
 
@@ -108,21 +115,14 @@ If the opening sentence is weak or generic, lead_quality should be 0.6 or lower.
         
         overall_score = result.get("overall_score", 0.5)
         
-        # Format detailed feedback
         feedback = f"""
-╔══════════════════════════════════════════════════════════════════╗
-║                    STYLE GURU FEEDBACK                           ║
-╚══════════════════════════════════════════════════════════════════╝
-
 OVERALL SCORE: {overall_score:.2f}/1.00
-
 COMPONENT SCORES:
   Lead Quality:    {result.get('lead_quality', 0):.2f}/1.00
   Structure:       {result.get('structure_score', 0):.2f}/1.00
   Vocabulary:      {result.get('vocabulary_score', 0):.2f}/1.00
   Tone:            {result.get('tone_score', 0):.2f}/1.00
   Attribution:     {result.get('attribution_score', 0):.2f}/1.00
-
 STRENGTHS:
 """
         for strength in result.get("strengths", []):
@@ -138,11 +138,10 @@ STRENGTHS:
         for i, priority in enumerate(result.get("revision_priorities", []), 1):
             feedback += f"  {i}. {priority}\n"
         
-        feedback += "\n" + "═"*70 + "\n"
-        
         return overall_score, feedback
         
     except Exception as e:
+        print(f"⚠️ LLM scoring failed: {e}")
         return 0.5, f"LLM scoring failed: {e}"
 
 
@@ -151,26 +150,23 @@ def score_article(article_text: str) -> Tuple[float, str]:
     Score an article using both statistical and LLM-based methods.
     Returns (combined_score, detailed_feedback).
     """
-    # Load framework
+    # **NEW:** Add a guard clause for very short or empty text
+    if not article_text or len(article_text.split()) < 10:
+        print("⚠️ Article is too short for a meaningful score. Returning a default low score.")
+        return 0.1, "The article is too short to be scored. Please provide more content."
+
     framework = load_style_framework()
     
-    # Statistical score (30% weight)
     stat_score = statistical_score(article_text)
-    
-    # LLM score (70% weight - more reliable)
     llm_score, llm_feedback = llm_based_score(article_text, framework)
     
-    # Combined score
+    # **NEW:** Ensure scores are valid numbers before combining
+    stat_score = stat_score if np.isfinite(stat_score) else 0.5
+    llm_score = llm_score if np.isfinite(llm_score) else 0.5
+
     combined_score = (stat_score * 0.3) + (llm_score * 0.7)
     
-    # Add statistical score to feedback
-    full_feedback = f"""
-COMBINED SCORE: {combined_score:.3f}/1.00
-  - Statistical Score: {stat_score:.3f} (30% weight)
-  - LLM Score:         {llm_score:.3f} (70% weight)
-
-{llm_feedback}
-"""
+    full_feedback = f"COMBINED SCORE: {combined_score:.3f}/1.00\n  - Statistical Score: {stat_score:.3f} (30% weight)\n  - LLM Score:         {llm_score:.3f} (70% weight)\n\n{llm_feedback}"
     
     return combined_score, full_feedback
 

@@ -6,11 +6,10 @@ from google.oauth2.service_account import Credentials
 from ..agents.tools import tool
 from ..agents.loggerbot import LoggerBot
 
-# --- Google Sheets Tool ---
-
 class GoogleSheetsTool:
     def __init__(self, logger=None):
         self.logger = logger or LoggerBot.get_logger()
+        self.client = None  # Initialize client as None
         self.scopes = [
             "https://www.googleapis.com/auth/spreadsheets",
             "https://www.googleapis.com/auth/drive"
@@ -19,39 +18,46 @@ class GoogleSheetsTool:
         try:
             creds = Credentials.from_service_account_file(creds_path, scopes=self.scopes)
             self.client = gspread.authorize(creds)
-            self.logger.info("Google Sheets client authenticated.")
+            self.logger.info("✅ Google Sheets client authenticated successfully.")
         except FileNotFoundError:
-            self.logger.error(f"🔥 Google Sheets credentials not found at {creds_path}. The tool will not work.")
-            self.client = None
+            self.logger.warning(f"⚠️ Google Sheets credentials not found at '{creds_path}'. Google Sheets tool will be disabled.")
+        except Exception as e:
+            self.logger.error(f"🔥 An unexpected error occurred during Google Sheets initialization: {e}", exc_info=True)
 
     @tool
     def read_tasks_from_sheet(self, sheet_url: str, worksheet_name: str) -> list[dict]:
         """
-        Reads all rows from a specified worksheet and returns them as a list of dictionaries.
-        Useful for fetching new article assignments.
+        Reads all rows from a specified worksheet.
         """
         if not self.client:
-            self.logger.error("Google Sheets client not authenticated.")
+            self.logger.error("Google Sheets tool is disabled. Cannot read from sheet.")
             return {"error": "Google Sheets client not authenticated."}
-        self.logger.info(f"   -  Reading tasks from sheet: {worksheet_name}")
-        sheet = self.client.open_by_url(sheet_url)
-        worksheet = sheet.worksheet(worksheet_name)
-        return worksheet.get_all_records()
+        try:
+            self.logger.info(f"   - Reading tasks from sheet: {worksheet_name}")
+            sheet = self.client.open_by_url(sheet_url)
+            worksheet = sheet.worksheet(worksheet_name)
+            return worksheet.get_all_records()
+        except Exception as e:
+            self.logger.error(f"Failed to read from Google Sheet: {e}", exc_info=True)
+            return {"error": f"Failed to read from Google Sheet: {e}"}
 
     @tool
     def log_completed_article(self, sheet_url: str, worksheet_name: str, article_data: list) -> str:
         """
-        Appends a new row to the specified worksheet to log a completed task.
-        article_data should be a list of values in the order of the columns.
+        Appends a new row to the specified worksheet.
         """
         if not self.client:
-            self.logger.error("Google Sheets client not authenticated.")
+            self.logger.error("Google Sheets tool is disabled. Cannot log to sheet.")
             return "Error: Google Sheets client not authenticated."
-        self.logger.info(f"   - Logging completed article to sheet: {worksheet_name}")
-        sheet = self.client.open_by_url(sheet_url)
-        worksheet = sheet.worksheet(worksheet_name)
-        worksheet.append_row(article_data)
-        return "Successfully logged article to Google Sheet."
+        try:
+            self.logger.info(f"   - Logging completed article to sheet: {worksheet_name}")
+            sheet = self.client.open_by_url(sheet_url)
+            worksheet = sheet.worksheet(worksheet_name)
+            worksheet.append_row(article_data)
+            return "Successfully logged article to Google Sheet."
+        except Exception as e:
+            self.logger.error(f"Failed to log to Google Sheet: {e}", exc_info=True)
+            return f"Error: Failed to log to Google Sheet: {e}"
 
-# Instantiate the tool to make it available for import
+# Instantiate the tool
 sheets_tool = GoogleSheetsTool()

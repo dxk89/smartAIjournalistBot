@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 from my_framework.core.runnables import Runnable
 from my_framework.models.base import BaseChatModel
 from my_framework.agents.researcher import ResearcherAgent
@@ -15,7 +16,6 @@ from my_framework.apps import rules
 from my_framework.models.openai import safe_load_json
 from my_framework.agents.loggerbot import LoggerBot
 
-# Import Style Guru scorer for pre-written articles
 try:
     from my_framework.style_guru.scorer import score_article
     STYLE_GURU_AVAILABLE = True
@@ -31,16 +31,13 @@ class OrchestratorAgent(Runnable):
         self.researcher = ResearcherAgent(logger=self.logger)
         self.summarizer = SummarizerAgent(llm=llm, logger=self.logger)
         
-        # Use iterative writer if style guru is enabled
         self.use_style_guru = use_style_guru
         if use_style_guru:
-            # Check if style framework exists
             if os.path.exists("intellinews_style_framework.json"):
                 self.logger.info("✅ Style Guru enabled - using IterativeWriterAgent")
                 self.writer = IterativeWriterAgent(llm=llm, max_iterations=5, score_threshold=score_threshold, logger=self.logger)
             else:
-                self.logger.warning("⚠️ Style framework not found. Run setup_style_guru.py first!")
-                self.logger.info("   Falling back to regular WriterAgent")
+                self.logger.warning("⚠️ Style framework not found. Falling back to regular WriterAgent")
                 self.writer = WriterAgent(llm=llm, logger=self.logger)
                 self.use_style_guru = False
         else:
@@ -62,20 +59,15 @@ class OrchestratorAgent(Runnable):
     def invoke(self, input: dict, config=None) -> str:
         self.logger.info("--- Orchestrator Agent Starting Workflow ---")
         
-        if self.use_style_guru:
-            self.logger.info("🎨 STYLE GURU MODE: Articles will be iteratively refined")
-        
         user_goal = input.get("input")
         self.memory.append(HumanMessage(content=user_goal))
         
-        # Check if this is a pre-written article (source_content provided directly)
         is_prewritten = "source_content" in input and not input.get("source_url")
         
         if is_prewritten:
             self.logger.info("📄 PRE-WRITTEN ARTICLE DETECTED")
             return self._handle_prewritten_article(input)
         
-        # 1. Plan (for non-pre-written articles)
         self.logger.info("Orchestrator: 🧠 Planning the workflow...")
         plan_prompt = [
             SystemMessage(content=rules.ORCHESTRATOR_SYSTEM_PROMPT),
@@ -90,7 +82,6 @@ class OrchestratorAgent(Runnable):
             self.logger.error(f"Orchestrator: ❌ Failed to parse plan from LLM: {e}")
             return f"Error: Could not decode the workflow plan. {e}"
 
-        # 2. Execute Plan
         context = {"user_goal": user_goal, **input}
         for i, step in enumerate(plan):
             agent_name = step["agent"]
@@ -98,7 +89,6 @@ class OrchestratorAgent(Runnable):
             
             self.logger.info(f"Orchestrator: 🔄 Step {i+1}: Delegating to {agent_name.title()} Agent.")
             
-            # Substitute context from previous steps
             for key, value in agent_input.items():
                 if isinstance(value, str) and value.startswith("{") and value.endswith("}"):
                     lookup_key = value.strip("{}")
@@ -109,20 +99,8 @@ class OrchestratorAgent(Runnable):
                 agent = self.agent_map[agent_name]
                 result = agent.invoke(agent_input)
                 
-                # For iterative writer, extract the final article
                 if agent_name == "write" and self.use_style_guru and isinstance(result, dict):
-                    if result.get("success"):
-                        self.logger.info(f"Orchestrator: ✅ Article accepted after {result.get('iterations')} iterations")
-                        self.logger.info(f"Orchestrator:    Final score: {result.get('score'):.3f}")
-                        context[f"step_{i+1}_output"] = result["final_article"]
-                        
-                        # Log iteration history
-                        for iter_data in result.get("history", []):
-                            self.logger.debug(f"   Iteration {iter_data['iteration']}: Score {iter_data['score']:.3f}")
-                    else:
-                        self.logger.warning(f"Orchestrator: ⚠️ Article did not reach threshold after {result.get('iterations')} iterations")
-                        self.logger.warning(f"Orchestrator:    Best score: {result.get('score'):.3f}")
-                        context[f"step_{i+1}_output"] = result["final_article"]
+                    context[f"step_{i+1}_output"] = result["final_article"]
                 else:
                     context[f"step_{i+1}_output"] = result
                 
@@ -136,154 +114,74 @@ class OrchestratorAgent(Runnable):
         return context.get(f"step_{len(plan)}_output", "Workflow finished with no final output.")
 
     def _handle_prewritten_article(self, input: dict) -> str:
-        """
-        Special handler for pre-written articles.
-        Scores them with Style Guru (for informational purposes) but doesn't refine.
-        """
         source_content = input.get("source_content")
         username = input.get("username")
         password = input.get("password")
         
         self.logger.info("\n" + "="*70)
         self.logger.info("PRE-WRITTEN ARTICLE WORKFLOW")
-        self.logger.info("="*70)
         
-        # Step 1: Score with Style Guru (informational only)
         if self.use_style_guru and STYLE_GURU_AVAILABLE:
             self.logger.info("\n[1/3] 📊 Scoring pre-written article with Style Guru...")
-            self.logger.info("   (This is informational only - article will not be modified)")
-            
             try:
                 score, feedback = score_article(source_content)
                 self.logger.info(f"\n✨ STYLE GURU SCORE: {score:.3f}/1.00")
-                self.logger.info("\n" + "─"*70)
-                self.logger.info("FEEDBACK SUMMARY:")
-                self.logger.info("─"*70)
-                # Log just the first part of feedback (not the whole thing)
-                feedback_lines = feedback.split('\n')[:15]
-                for line in feedback_lines:
-                    self.logger.info(line)
-                self.logger.info("─"*70)
-                
-                if score >= 0.80:
-                    self.logger.info("✅ Article meets quality threshold!")
-                else:
-                    self.logger.warning(f"⚠️ Article scored {score:.2f}, below quality threshold (0.80)")
-                    self.logger.info("   However, pre-written articles are submitted as-is")
-                
             except Exception as e:
                 self.logger.error(f"⚠️ Could not score article: {e}", exc_info=True)
-        else:
-            self.logger.info("\n[1/3] ⚠️ Style Guru not available - skipping scoring")
         
-        # Step 2: Generate metadata (using Editor agent)
         self.logger.info("\n[2/3] 📝 Generating metadata...")
-        editor_input = {
-            "draft_article": source_content,
-            "source_content": source_content  # Same as draft for pre-written
-        }
+        editor_input = { "draft_article": source_content, "source_content": source_content }
         article_json = self.editor.invoke(editor_input)
         self.logger.info("✅ Metadata generated")
         
-        # Step 3: Publish
         self.logger.info("\n[3/3] 🚀 Publishing to CMS...")
-        publisher_input = {
-            "article_json_string": article_json,
-            "username": username,
-            "password": password
-        }
+        publisher_input = { "article_json_string": article_json, "username": username, "password": password }
         result = self.publisher.invoke(publisher_input)
         
         self.logger.info("\n" + "="*70)
         self.logger.info("✅ PRE-WRITTEN ARTICLE WORKFLOW COMPLETE")
-        self.logger.info("="*70)
         
         return result
     
     def rewrite_only(self, input: dict) -> dict:
-        """
-        Rewrite an article from a URL without publishing.
-        Returns the article text, score, and feedback.
-        """
         source_url = input.get("source_url")
-        
         if not source_url:
             return {"error": "No source URL provided"}
         
-        self.logger.info("\n" + "="*70)
         self.logger.info("REWRITE ONLY WORKFLOW")
-        self.logger.info("="*70)
-        self.logger.info(f"Source URL: {source_url}")
         
-        # Step 1: Research (scrape URL)
         self.logger.info("\n[1/3] 📡 Scraping URL...")
         source_content = self.researcher.invoke({"source_url": source_url})
-        
         if isinstance(source_content, dict) and "error" in source_content:
             return source_content
-        
         self.logger.info(f"✅ Scraped {len(source_content)} characters")
         
-        # Step 2: Write with Style Guru
         self.logger.info("\n[2/3] ✍️ Writing article with Style Guru...")
-        writer_input = {
-            "source_content": source_content,
-            "user_prompt": "Write a news article based on this content"
-        }
-        
+        writer_input = { "source_content": source_content, "user_prompt": "Write a news article based on this content" }
         result = self.writer.invoke(writer_input)
         
-        # Initialize defaults
-        article = ""
-        score = 0.0
-        component_scores = {
-            "lead_quality": 0.0,
-            "structure": 0.0,
-            "vocabulary": 0.0,
-            "tone": 0.0,
-            "attribution": 0.0
-        }
-        feedback = ""
-        iterations = 0
+        article, score, feedback, iterations = "", 0.0, "", 0
+        component_scores = { "lead_quality": 0.0, "structure": 0.0, "vocabulary": 0.0, "tone": 0.0, "attribution": 0.0 }
         
-        # Extract data from result
         if isinstance(result, dict):
-            if result.get("success"):
-                article = result.get("final_article", "")
-                score = result.get("score", 0.0)
-                iterations = result.get("iterations", 0)
-                history = result.get("history", [])
-                
-                # Get the last feedback from history
-                if history:
-                    last_entry = history[-1]
-                    feedback = last_entry.get("feedback", "")
-                
-                self.logger.info(f"\n✅ Article completed after {iterations} iterations")
-                self.logger.info(f"   Final score: {score:.3f}")
-            else:
-                # Handle failure case
-                article = result.get("final_article", "")
-                score = result.get("score", 0.0)
-                feedback = result.get("message", "Article did not meet threshold")
+            article = result.get("final_article", "")
+            score = result.get("score", 0.0)
+            iterations = result.get("iterations", 0)
+            if result.get("history"):
+                feedback = result["history"][-1].get("feedback", "")
         else:
-            # Fallback if result is just a string
             article = str(result)
             feedback = "Style Guru not available"
         
-        # Step 3: Parse component scores from feedback
         self.logger.info("\n[3/3] 📊 Extracting component scores...")
-        
         if feedback:
-            import re
-            
-            # Pattern to match score lines like "Lead Quality:    0.85/1.00"
+            # --- FIX: Updated regex to capture the score before the slash ---
             patterns = {
-                "lead_quality": r"Lead Quality:\s*(\d+\.\d+)",
-                "structure": r"Structure:\s*(\d+\.\d+)",
-                "vocabulary": r"Vocabulary:\s*(\d+\.\d+)",
-                "tone": r"Tone:\s*(\d+\.\d+)",
-                "attribution": r"Attribution:\s*(\d+\.\d+)"
+                "lead_quality": r"Lead Quality:\s*([\d.]+)\/",
+                "structure": r"Structure:\s*([\d.]+)\/",
+                "vocabulary": r"Vocabulary:\s*([\d.]+)\/",
+                "tone": r"Tone:\s*([\d.]+)\/",
+                "attribution": r"Attribution:\s*([\d.]+)\/"
             }
             
             for component, pattern in patterns.items():
@@ -292,40 +190,17 @@ class OrchestratorAgent(Runnable):
                     component_scores[component] = float(match.group(1))
                     self.logger.debug(f"   Extracted {component}: {component_scores[component]:.2f}")
         
-        # Clean up the article - remove any feedback that might have leaked in
         if article:
-            # Remove any lines that look like feedback headers
             lines = article.split('\n')
-            cleaned_lines = []
-            skip_mode = False
-            
-            for line in lines:
-                # Check if this is a feedback section
-                if any(marker in line for marker in ['OVERALL SCORE:', 'COMPONENT SCORES:', 'STRENGTHS:', 'WEAKNESSES:', 'DETAILED FEEDBACK:', 'REVISION PRIORITIES:', '═'*10, '─'*10]):
-                    skip_mode = True
-                    continue
-                
-                # If we're in skip mode, check if we're back to article content
-                if skip_mode and line.strip() and not line.startswith(' '):
-                    # Might be back to article content
-                    skip_mode = False
-                
-                if not skip_mode and line.strip():
-                    cleaned_lines.append(line)
-            
+            cleaned_lines = [line for line in lines if not any(marker in line for marker in ['OVERALL SCORE:', 'COMPONENT SCORES:', 'STRENGTHS:', 'WEAKNESSES:', 'DETAILED FEEDBACK:', 'REVISION PRIORITIES:'])]
             article = '\n'.join(cleaned_lines).strip()
         
-        self.logger.info("\n" + "="*70)
         self.logger.info("✅ REWRITE COMPLETE")
-        self.logger.info(f"   Article length: {len(article)} characters")
-        self.logger.info(f"   Score: {score:.3f}")
-        self.logger.info(f"   Component scores extracted: {sum(1 for v in component_scores.values() if v > 0)}/5")
-        self.logger.info("="*70)
         
         return {
             "article": article,
-            "score": float(score),  # Ensure it's a float, not numpy float
-            "component_scores": {k: float(v) for k, v in component_scores.items()},  # Ensure all are floats
+            "score": float(score),
+            "component_scores": {k: float(v) for k, v in component_scores.items()},
             "feedback": feedback,
             "iterations": iterations,
             "success": True

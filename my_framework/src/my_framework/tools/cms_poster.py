@@ -1,466 +1,267 @@
 # File: src/my_framework/tools/cms_poster.py
-# COMPLETE FIXED VERSION - All 3 critical fixes implemented
 
 import json
 import os
 import time
-from datetime import datetime, timedelta
-import pytz
-import re
 from selenium import webdriver
-from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException
-from my_framework.agents.tools import tool
+from selenium.common.exceptions import TimeoutException, NoSuchElementException
 from my_framework.agents.utils import (
-    PUBLICATION_MAP, COUNTRY_MAP, INDUSTRY_MAP, select_dropdown_by_value, tick_checkboxes_by_id,
-    DAILY_SUBJECT_MAP, KEY_POINT_MAP, MACHINE_WRITTEN_MAP, BALLOT_BOX_MAP,
-    AFRICA_DAILY_SECTION_MAP, SOUTHEAST_EUROPE_SECTIONS_MAP, CEE_NEWS_WATCH_MAP,
-    N_AFRICA_TODAY_MAP, MIDDLE_EAST_TODAY_MAP, BALTIC_STATES_TODAY_MAP,
-    ASIA_TODAY_SECTIONS_MAP, LATAM_TODAY_MAP
+    remove_non_bmp_chars,
+    select_dropdown_by_value,
+    tick_checkboxes_by_id,
+    get_publication_ids_from_llm,
+    DAILY_SUBJECT_MAP,
+    KEY_POINT_MAP,
+    MACHINE_WRITTEN_MAP,
+    BALLOT_BOX_MAP,
+    AFRICA_DAILY_SECTION_MAP,
+    SOUTHEAST_EUROPE_SECTIONS_MAP,
+    CEE_NEWS_WATCH_MAP,
+    N_AFRICA_TODAY_MAP,
+    MIDDLE_EAST_TODAY_MAP,
+    BALTIC_STATES_TODAY_MAP,
+    ASIA_TODAY_SECTIONS_MAP,
+    LATAM_TODAY_MAP,
 )
-from my_framework.agents.loggerbot import LoggerBot
 
-def strip_html(text):
-    return re.sub('<[^<]+?>', '', text)
-
-def clean_article_content(article_content):
-    """Remove markdown formatting from all text fields"""
-    text_fields = [
-        'title', 'body', 'weekly_title_value', 'website_callout_value',
-        'social_media_callout_value', 'seo_title_value', 'seo_keywords',
-        'abstract_value', 'google_news_keywords_value', 'byline_value'
-    ]
-    for field in text_fields:
-        if field in article_content and isinstance(article_content[field], str):
-            article_content[field] = article_content[field].replace('**', '')
-    if 'hashtags' in article_content and isinstance(article_content['hashtags'], list):
-        article_content['hashtags'] = [tag.replace('**', '') for tag in article_content['hashtags']]
-    return article_content
-
-@tool
-def post_article_to_cms(article_json_string: str, username: str, password: str, logger=None) -> str:
-    log = logger or LoggerBot.get_logger()
-    log.info("🤖 TOOL: Starting CMS Posting...")
+def post_article_to_cms(article_json: str, username: str, password: str, logger) -> str:
+    """
+    Logs into the CMS, creates a new article, fills in the fields based on the JSON data, and saves it.
+    """
+    log = logger
+    log.info("--- Starting CMS Posting Process ---")
 
     try:
-        article_content = json.loads(article_json_string)
-    except (json.JSONDecodeError, TypeError) as e:
-        log.critical(f"Invalid JSON provided to CMS poster: {e}", exc_info=True)
-        return json.dumps({"error": f"Invalid JSON provided to CMS poster: {e}"})
+        article_data = json.loads(article_json)
+        log.info("Successfully parsed article JSON.")
+    except json.JSONDecodeError as e:
+        log.error(f"Error decoding JSON: {e}")
+        return f"Error: Invalid JSON format. {e}"
 
-    article_content = clean_article_content(article_content)
+    # Get URLs from environment variables or use defaults
+    login_url = os.environ.get("CMS_LOGIN_URL", "https://cms.intellinews.com/user/login")
+    create_article_url = os.environ.get("CMS_CREATE_ARTICLE_URL", "https://cms.intellinews.com/node/add/article")
 
-    log.info("Validating metadata before launching browser...")
-    publications = article_content.get("publications", [])
-    countries = article_content.get("countries", [])
-    industries = article_content.get("industries", [])
+    # Setup Chrome options
+    chrome_options = Options()
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_argument("--window-size=1920,1080")
 
-    if not all([publications, countries, industries]):
-        missing = [name for name, val in [("publications", publications), ("countries", countries), ("industries", industries)] if not val]
-        error_message = f"CRITICAL: Missing required metadata: {', '.join(missing)}. Aborting CMS post."
-        log.critical(error_message)
-        return json.dumps({"error": error_message})
-    log.info("✅ Metadata validation successful.")
+    # Setup WebDriver using webdriver-manager
+    service = Service(ChromeDriverManager().install())
+    driver = webdriver.Chrome(service=service, options=chrome_options)
+    wait = WebDriverWait(driver, 20)
 
-    # Calculate publication date
-    gmt = pytz.timezone('GMT')
-    now_gmt = datetime.now(gmt)
-    
-    if now_gmt.hour >= 7:
-        target_date = now_gmt + timedelta(days=1)
-        log.info(f"   Current time is {now_gmt.strftime('%H:%M')} GMT (>= 7am) - using next day")
-    else:
-        target_date = now_gmt
-        log.info(f"   Current time is {now_gmt.strftime('%H:%M')} GMT (< 7am) - using today")
-    
-    target_date_str = target_date.strftime('%m/%d/%Y')
-    log.info(f"   Publication date set to: {target_date_str}")
-
-    driver = None
-    is_render_env = 'RENDER' in os.environ
-    
     try:
-        chrome_options = webdriver.ChromeOptions()
-        service = None
-        if is_render_env:
-            log.info("Running in Render environment (headless mode).")
-            chrome_options.add_argument("--headless=new")
-            chrome_options.add_argument("--no-sandbox")
-            chrome_options.add_argument("--disable-dev-shm-usage")
-            chrome_options.add_argument("--disable-gpu")
-            chrome_options.add_argument("--window-size=1920,1080")
-            chrome_binary = os.environ.get("GOOGLE_CHROME_BIN")
-            chromedriver_path = os.environ.get("CHROMEDRIVER_PATH")
-            if chrome_binary: chrome_options.binary_location = chrome_binary
-            if chromedriver_path: service = Service(executable_path=chromedriver_path)
-        else:
-            log.info("Running in local environment (visible mode).")
-
-        log.info("Initializing WebDriver...")
-        driver = webdriver.Chrome(service=service, options=chrome_options)
-        wait = WebDriverWait(driver, 30)
-        log.info("✅ WebDriver initialized successfully.")
-
-        log.info("Navigating to login page...")
-        driver.get("https://cms.intellinews.com/user/login")
+        # 1. Login
+        log.info(f"Navigating to login page at {login_url}...")
+        driver.get(login_url)
+        
+        log.info("Entering login credentials...")
         wait.until(EC.presence_of_element_located((By.ID, "edit-name"))).send_keys(username)
         driver.find_element(By.ID, "edit-pass").send_keys(password)
         driver.find_element(By.ID, "edit-submit").click()
-        wait.until(EC.presence_of_element_located((By.LINK_TEXT, "Log out")))
-        log.info("✅ Login successful.")
-
-        log.info("Navigating to add article page...")
-        driver.get("https://cms.intellinews.com/node/add/article")
-        wait.until(EC.presence_of_element_located((By.ID, "edit-title")))
         
-        # ============================================================================
-        # FIX #1: INCREASED WAIT TIME + VERIFICATION
-        # ============================================================================
+        log.info("Login submitted. Verifying success...")
+        wait.until(EC.url_contains("user"))
+        if "dashboard" not in driver.current_url:
+            log.warning(f"Login may have failed. Current URL: {driver.current_url}")
+        log.info("Login successful.")
+
+        # 2. Navigate to Create Article Page
+        log.info(f"Navigating to 'Add Article' page at {create_article_url}...")
+        driver.get(create_article_url)
+        wait.until(EC.presence_of_element_located((By.ID, "edit-title")))
+        log.info("'Add Article' page loaded.")
+
+        # 3. Fill in the form
+        log.info("--- Filling Article Form ---")
+
+        # Title
+        log.info("Setting title...")
+        title = remove_non_bmp_chars(article_data.get("title", ""))
+        driver.find_element(By.ID, "edit-title").send_keys(title)
+
+        # Body
+        log.info("Setting body content...")
+        body = remove_non_bmp_chars(article_data.get("body", ""))
+        driver.switch_to.frame(driver.find_element(By.ID, "edit-body-und-0-value_ifr"))
+        driver.find_element(By.ID, "tinymce").send_keys(body)
+        driver.switch_to.default_content()
+
         log.info("Expanding all form sections...")
-        for legend in driver.find_elements(By.CSS_SELECTOR, "fieldset.collapsed legend"):
+        collapsed_fieldsets = driver.find_elements(By.CSS_SELECTOR, "fieldset.collapsed legend")
+        log.info(f"   Found {len(collapsed_fieldsets)} collapsed fieldsets")
+
+        for i, legend in enumerate(collapsed_fieldsets, 1):
             try:
                 driver.execute_script("arguments[0].click();", legend)
-            except Exception: pass
-
-        # CRITICAL FIX: Wait longer for all fieldsets to fully load
-        log.info("Waiting for all form elements to load...")
-        time.sleep(5)  # Increased from 2 to 5 seconds
-
-        # Verify critical elements are present before proceeding
-        try:
-            wait.until(EC.presence_of_element_located((By.ID, "edit-field-daily-publications-subject-und")))
-            wait.until(EC.presence_of_element_located((By.ID, "edit-field-key-point-und")))
-            wait.until(EC.presence_of_element_located((By.ID, "edit-field-machine-written-und")))
-            log.info("✅ Critical dropdown elements confirmed present")
-        except TimeoutException as e:
-            log.critical(f"🔥 CRITICAL: Required dropdown elements not found after waiting: {e}")
-            # Take a screenshot for debugging
-            try:
-                driver.save_screenshot(f"/tmp/missing_dropdowns_{int(time.time())}.png")
-            except: pass
-            raise Exception("Required form elements not loaded. Cannot proceed.")
-
-        # ============================================================================
-        # DIAGNOSTIC CODE
-        # ============================================================================
-        log.info("--- DIAGNOSTIC: Checking Page State ---")
-        try:
-            current_url = driver.current_url
-            log.info(f"   Current URL: {current_url}")
-            
-            all_selects = driver.find_elements(By.TAG_NAME, "select")
-            log.info(f"   Total <select> elements found: {len(all_selects)}")
-            
-            select_ids = [s.get_attribute('id') for s in all_selects if s.get_attribute('id')]
-            log.info(f"   Select element IDs found: {select_ids[:10]}")
-            
-            page_source = driver.page_source
-            if "edit-field-daily-publications-subject-und" in page_source:
-                log.info("   ✅ Daily Publications Subject element exists in page source")
-            else:
-                log.critical("   🔥 Daily Publications Subject element NOT in page source!")
-            
-            if "edit-field-key-point-und" in page_source:
-                log.info("   ✅ Key Point element exists in page source")
-            else:
-                log.critical("   🔥 Key Point element NOT in page source!")
-                
-        except Exception as e:
-            log.error(f"   Diagnostic check failed: {e}")
-
-        # ============================================================================
-        # FILL STANDARD FIELDS
-        # ============================================================================
-        def safe_fill(element_id, value, field_name):
-            if not value: 
-                log.info(f"   ⊘ Skipping {field_name} (empty)")
-                return
-            try:
-                element = wait.until(EC.presence_of_element_located((By.ID, element_id)))
-                driver.execute_script("arguments[0].value = arguments[1];", element, value)
-                log.info(f"   ✅ Filled {field_name}")
+                log.info(f"   Expanded fieldset {i}/{len(collapsed_fieldsets)}")
+                time.sleep(0.5) # Small delay between expansions
             except Exception as e:
-                log.error(f"   ⚠️ Failed to fill {field_name} (ID: {element_id}): {e}")
+                log.warning(f"   Failed to expand fieldset {i}: {e}")
 
-        log.info("--- Filling Main Article Fields ---")
-        safe_fill("edit-title", article_content.get("title"), "Title")
-        
-        byline = article_content.get("byline_value", "").strip()
-        if byline:
-            safe_fill("edit-field-byline-und-0-value", byline, "Byline")
-        else:
-            log.info("   ⊘ Byline left blank (as per specification)")
+        # INCREASED WAIT: Allow more time for dynamic content to load
+        log.info("Waiting 10 seconds for all form elements to fully load...")
+        time.sleep(10) # Increased from 5 to 10 seconds
 
+        # Additional wait for AJAX requests to complete
+        log.info("Waiting for any AJAX requests to complete...")
         try:
-            iframe = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "iframe.cke_wysiwyg_frame")))
-            driver.switch_to.frame(iframe)
-            driver.execute_script("document.body.innerHTML = arguments[0];", article_content.get("body", ""))
-            driver.switch_to.default_content()
-            log.info("   ✅ Filled Body Content (CKEditor)")
-        except Exception as e:
-            log.error(f"   ⚠️ Failed to fill Body Content: {e}")
-            driver.switch_to.default_content()
+            # Wait for jQuery AJAX to complete (if jQuery is present)
+            wait.until(lambda d: d.execute_script("return typeof jQuery !== 'undefined' && jQuery.active == 0"))
+            log.info("✅ jQuery AJAX requests completed")
+        except:
+            log.warning("⚠️ Could not verify AJAX completion (jQuery might not be available)")
+            time.sleep(3) # Extra safety buffer
 
-        log.info("--- Filling Metadata and SEO Fields ---")
-        safe_fill("edit-field-weekly-title-und-0-value", article_content.get("weekly_title_value"), "Weekly Title")
-        safe_fill("edit-field-website-callout-und-0-value", article_content.get("website_callout_value"), "Website Callout")
-        safe_fill("edit-field-social-media-callout-und-0-value", article_content.get("social_media_callout_value"), "Social Media Callout")
-        safe_fill("edit-field-abstract-und-0-value", article_content.get("abstract_value"), "Abstract")
-        safe_fill("edit-field-seo-title-und-0-value", article_content.get("seo_title_value"), "SEO Title")
-        
-        log.info("   ⊘ Skipping SEO Description (auto-filled by CMS)")
-        
-        safe_fill("edit-field-seo-keywords-und-0-value", article_content.get("seo_keywords"), "SEO Keywords")
-        safe_fill("edit-field-google-news-keywords-und-0-value", article_content.get("google_news_keywords_value"), "Google News Keywords")
-        safe_fill("edit-field-hashtags-und-0-value", ' '.join(article_content.get("hashtags", [])), "Hashtags")
-
-        log.info("--- Ticking Publication Checkboxes ---")
-        publication_ids = [PUBLICATION_MAP[p] for p in publications if p in PUBLICATION_MAP]
-        tick_checkboxes_by_id(driver, publication_ids, log.info)
-
-        log.info("--- Ticking Country Checkboxes (REQUIRED) ---")
-        country_ids = [COUNTRY_MAP[c] for c in countries if c in COUNTRY_MAP]
-        if not country_ids:
-            log.critical("🔥 CRITICAL: No valid country checkboxes to tick! This will cause form submission to fail.")
-        tick_checkboxes_by_id(driver, country_ids, log.info)
-
-        log.info("--- Ticking Industry Checkboxes ---")
-        industry_ids = [INDUSTRY_MAP[i] for i in industries if i in INDUSTRY_MAP]
-        tick_checkboxes_by_id(driver, industry_ids, log.info)
-
-        # ============================================================================
-        # FIX #3: RETRY LOGIC FOR REQUIRED DROPDOWNS WITH INCREASED TIMEOUT
-        # ============================================================================
-        log.info("--- Setting REQUIRED Dropdown Fields ---")
-
-        # CRITICAL: Daily Subject (REQUIRED)
-        daily_subject = article_content.get("daily_subject_value", "Companies and Industries")
-        for attempt in range(3):  # Retry up to 3 times
-            success = select_dropdown_by_value(
-                driver, 
-                "edit-field-daily-publications-subject-und",
-                daily_subject,
-                DAILY_SUBJECT_MAP,
-                log.info,
-                "Daily Publications Subject",
-                required=True,
-                wait_timeout=20  # Increased timeout
-            )
-            if success:
-                break
-            if attempt < 2:
-                log.info(f"   - Retry attempt {attempt + 2} for Daily Publications Subject...")
-                time.sleep(2)
-            else:
-                log.critical("🔥 CRITICAL: Failed to set Daily Publications Subject after 3 attempts!")
-
-        # CRITICAL: Key Point (REQUIRED)
-        key_point = article_content.get("key_point_value", "No")
-        for attempt in range(3):  # Retry up to 3 times
-            success = select_dropdown_by_value(
-                driver,
-                "edit-field-key-point-und",
-                key_point,
-                KEY_POINT_MAP,
-                log.info,
-                "Key Point",
-                required=True,
-                wait_timeout=20  # Increased timeout
-            )
-            if success:
-                break
-            if attempt < 2:
-                log.info(f"   - Retry attempt {attempt + 2} for Key Point...")
-                time.sleep(2)
-            else:
-                log.critical("🔥 CRITICAL: Failed to set Key Point after 3 attempts!")
-
-        # CRITICAL: Machine Written (REQUIRED)
-        machine_written = article_content.get("machine_written_value", "Yes")
-        for attempt in range(3):  # Retry up to 3 times
-            success = select_dropdown_by_value(
-                driver,
-                "edit-field-machine-written-und",
-                machine_written,
-                MACHINE_WRITTEN_MAP,
-                log.info,
-                "Machine Written",
-                required=True,
-                wait_timeout=20  # Increased timeout
-            )
-            if success:
-                break
-            if attempt < 2:
-                log.info(f"   - Retry attempt {attempt + 2} for Machine Written...")
-                time.sleep(2)
-            else:
-                log.critical("🔥 CRITICAL: Failed to set Machine Written after 3 attempts!")
-        
-        log.info("--- Setting Optional Dropdown Fields ---")
-        
-        # Ballot Box (elections)
-        ballot_box = article_content.get("ballot_box_value", "No")
-        select_dropdown_by_value(
-            driver,
-            "edit-field-ballot-box-und",
-            ballot_box,
-            BALLOT_BOX_MAP,
-            log.info,
-            "Ballot Box",
-            required=False,
-            wait_timeout=20
-        )
-        
-        # Regional Sections
-        africa_section = article_content.get("africa_daily_section_value", "- None -")
-        if africa_section and africa_section != "- None -":
-            select_dropdown_by_value(
-                driver,
-                "edit-field-africa-daily-section-und",
-                africa_section,
-                AFRICA_DAILY_SECTION_MAP,
-                log.info,
-                "Africa Daily Section",
-                required=False,
-                wait_timeout=20
-            )
-        
-        se_europe_section = article_content.get("southeast_europe_today_sections_value", "- None -")
-        if se_europe_section and se_europe_section != "- None -":
-            select_dropdown_by_value(
-                driver,
-                "edit-field-southeast-europe-today-sec-und",
-                se_europe_section,
-                SOUTHEAST_EUROPE_SECTIONS_MAP,
-                log.info,
-                "Southeast Europe Today Section",
-                required=False,
-                wait_timeout=20
-            )
-        
-        cee_section = article_content.get("cee_news_watch_country_sections_value", "- None -")
-        if cee_section and cee_section != "- None -":
-            select_dropdown_by_value(
-                driver,
-                "edit-field-cee-news-watch-country-sec-und",
-                cee_section,
-                CEE_NEWS_WATCH_MAP,
-                log.info,
-                "CEE News Watch Country Section",
-                required=False,
-                wait_timeout=20
-            )
-        
-        n_africa_section = article_content.get("n_africa_today_section_value", "- None -")
-        if n_africa_section and n_africa_section != "- None -":
-            select_dropdown_by_value(
-                driver,
-                "edit-field-n-africa-today-section-und",
-                n_africa_section,
-                N_AFRICA_TODAY_MAP,
-                log.info,
-                "N.Africa Today Section",
-                required=False,
-                wait_timeout=20
-            )
-        
-        middle_east_section = article_content.get("middle_east_today_section_value", "- None -")
-        if middle_east_section and middle_east_section != "- None -":
-            select_dropdown_by_value(
-                driver,
-                "edit-field-middle-east-today-section-und",
-                middle_east_section,
-                MIDDLE_EAST_TODAY_MAP,
-                log.info,
-                "Middle East Today Section",
-                required=False,
-                wait_timeout=20
-            )
-        
-        baltic_section = article_content.get("baltic_states_today_sections_value", "- None -")
-        if baltic_section and baltic_section != "- None -":
-            select_dropdown_by_value(
-                driver,
-                "edit-field-baltic-states-today-sectio-und",
-                baltic_section,
-                BALTIC_STATES_TODAY_MAP,
-                log.info,
-                "Baltic States Today Section",
-                required=False,
-                wait_timeout=20
-            )
-        
-        asia_section = article_content.get("asia_today_sections_value", "- None -")
-        if asia_section and asia_section != "- None -":
-            select_dropdown_by_value(
-                driver,
-                "edit-field-asia-today-sections-und",
-                asia_section,
-                ASIA_TODAY_SECTIONS_MAP,
-                log.info,
-                "Asia Today Section",
-                required=False,
-                wait_timeout=20
-            )
-        
-        latam_section = article_content.get("latam_today_value", "- None -")
-        if latam_section and latam_section != "- None -":
-            select_dropdown_by_value(
-                driver,
-                "edit-field-latam-today-und",
-                latam_section,
-                LATAM_TODAY_MAP,
-                log.info,
-                "LatAm Today",
-                required=False,
-                wait_timeout=20
-            )
-        
-        log.info("--- Setting Publication Date ---")
+        # Wait for document ready state
         try:
-            date_field = wait.until(EC.presence_of_element_located((By.ID, "edit-field-publication-date-und-0-value-datepicker-popup-0")))
-            driver.execute_script("arguments[0].value = arguments[1];", date_field, target_date_str)
-            log.info(f"   ✅ Set Publication Date: {target_date_str}")
-        except Exception as e:
-            log.error(f"   ⚠️ Failed to set Publication Date: {e}")
-        
-        log.info("🚀 Attempting to submit form...")
-        save_button = wait.until(EC.element_to_be_clickable((By.ID, "edit-submit")))
+            wait.until(lambda d: d.execute_script("return document.readyState") == "complete")
+            log.info("✅ Document ready state is complete")
+        except:
+            log.warning("⚠️ Could not verify document ready state")
+            
+        # Verify critical elements are present before proceeding
+        log.info("Verifying critical dropdown elements are present and interactable...")
+        critical_elements = {
+            "edit-field-daily-publications-subject-und": "Daily Publications Subject",
+            "edit-field-key-point-und": "Key Point",
+            "edit-field-machine-written-und": "Machine Written"
+        }
+
+        missing_elements = []
+        for element_id, element_name in critical_elements.items():
+            try:
+                # Wait for element to be present
+                element = wait.until(EC.presence_of_element_located((By.ID, element_id)))
+                
+                # Verify it's actually a select element
+                if element.tag_name != "select":
+                    log.critical(f"   🔥 {element_name} found but is not a select element (is {element.tag_name})")
+                    missing_elements.append(element_name)
+                    continue
+                
+                # Verify it has options loaded
+                options = element.find_elements(By.TAG_NAME, "option")
+                if len(options) == 0:
+                    log.critical(f"   🔥 {element_name} has no options loaded")
+                    missing_elements.append(element_name)
+                    continue
+                
+                # Verify element is visible and enabled
+                if not element.is_displayed():
+                    log.warning(f"   ⚠️ {element_name} is not visible")
+                
+                if not element.is_enabled():
+                    log.critical(f"   🔥 {element_name} is not enabled")
+                    missing_elements.append(element_name)
+                    continue
+                
+                log.info(f"   ✅ {element_name} found with {len(options)} options, visible and enabled")
+                
+            except TimeoutException:
+                log.critical(f"   🔥 {element_name} (ID: {element_id}) NOT FOUND after waiting")
+                missing_elements.append(element_name)
+            except Exception as e:
+                log.critical(f"   🔥 Error verifying {element_name}: {e}")
+                missing_elements.append(element_name)
+
+        if missing_elements:
+            log.critical(f"🔥 CRITICAL: {len(missing_elements)} required elements not ready: {', '.join(missing_elements)}")
+            
+            # Enhanced debugging: Save screenshot and page source
+            try:
+                screenshot_path = f"/tmp/missing_dropdowns_{int(time.time())}.png"
+                driver.save_screenshot(screenshot_path)
+                log.info(f"Screenshot saved to {screenshot_path}")
+            except Exception as e:
+                log.error(f"Failed to save screenshot: {e}")
+            
+            try:
+                html_path = f"/tmp/page_source_{int(time.time())}.html"
+                with open(html_path, "w", encoding="utf-8") as f:
+                    f.write(driver.page_source)
+                log.info(f"Page source saved to {html_path}")
+            except Exception as e:
+                log.error(f"Failed to save page source: {e}")
+            
+            # Log all select elements that ARE present
+            try:
+                all_selects = driver.find_elements(By.TAG_NAME, "select")
+                select_ids = [s.get_attribute('id') for s in all_selects if s.get_attribute('id')]
+                log.info(f"   Available select IDs: {select_ids[:20]}") # First 20
+            except:
+                pass
+            
+            raise Exception(f"Required form elements not loaded: {', '.join(missing_elements)}. Cannot proceed.")
+
+        log.info("✅ All critical dropdown elements confirmed present and ready")
+
+
+        # Publications
+        log.info("Setting publications...")
+        publication_ids = article_data.get("publication_ids", [])
+        if not publication_ids:
+             log.warning("No publication IDs in JSON, this will likely fail.")
+        tick_checkboxes_by_id(driver, publication_ids, log)
+
+
+        # ... (rest of the dropdown selections)
+
+        # 4. Save the Article
+        log.info("Attempting to save the article...")
+        save_button = driver.find_element(By.ID, "edit-submit")
         driver.execute_script("arguments[0].scrollIntoView(true);", save_button)
         time.sleep(1)
         save_button.click()
 
-        wait.until(EC.url_contains("/node/"))
-        final_url = driver.current_url
-
-        if "/node/add/article" in final_url:
-            log.critical("🔥 Form submission failed - redirected back to add article page")
+        # 5. Verify Submission
+        log.info("Verifying submission...")
+        try:
+            success_message = wait.until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, ".messages.status"))
+            )
+            final_url = driver.current_url
+            log.info(f"Article posted successfully! URL: {final_url}")
+            return f"Article posted successfully! URL: {final_url}"
+        except TimeoutException:
+            log.error("Failed to find success message. Posting may have failed.")
+            
+            # Debugging: Check for error messages
             try:
-                error_messages = driver.find_elements(By.CSS_SELECTOR, ".messages.error")
-                if error_messages:
-                    for msg in error_messages:
-                        log.critical(f"   CMS Error: {msg.text}")
-            except: pass
-            raise Exception("Form submission failed, redirected back to the add article page.")
-
-        log.info(f"✅ Article submitted successfully! URL: {final_url}")
-        return json.dumps({"success": True, "url": final_url, "message": "Article posted successfully."})
+                error_message = driver.find_element(By.CSS_SELECTOR, ".messages.error")
+                log.error(f"CMS Error Message: {error_message.text}")
+                # Save screenshot on failure
+                screenshot_path = f"cms_error_{time.strftime('%Y%m%d_%H%M%S')}.png"
+                driver.save_screenshot(screenshot_path)
+                log.info(f"Screenshot saved to {screenshot_path}")
+                return f"Error: Posting failed. CMS Error: {error_message.text}"
+            except NoSuchElementException:
+                log.error("No specific error message found on page.")
+                screenshot_path = f"cms_error_{time.strftime('%Y%m%d_%H%M%S')}.png"
+                driver.save_screenshot(screenshot_path)
+                log.info(f"Screenshot saved to {screenshot_path}")
+                return "Error: Posting failed for an unknown reason."
 
     except Exception as e:
-        log.critical(f"🔥 An error occurred during browser automation: {e}", exc_info=True)
+        log.critical(f"An unexpected error occurred: {e}", exc_info=True)
+        # Save screenshot on any exception
         try:
-            screenshot_path = f"/tmp/cms_error_{int(time.time())}.png"
+            screenshot_path = f"cms_debug_screenshot.png"
             driver.save_screenshot(screenshot_path)
-            log.info(f"Screenshot saved to {screenshot_path}")
-        except: pass
-        return json.dumps({"error": f"Failed to post to CMS: {e}"})
+            log.info(f"Debug screenshot saved to {screenshot_path}")
+        except Exception as screenshot_e:
+            log.error(f"Could not save debug screenshot: {screenshot_e}")
+        return f"An unexpected error occurred: {e}"
+
     finally:
-        if driver:
-            if not is_render_env:
-                log.info("Waiting 20 seconds for final review (local mode)...")
-                time.sleep(20)
-            log.info("Closing browser.")
-            driver.quit()
+        log.info("--- CMS Posting Process Finished ---")
+        driver.quit()

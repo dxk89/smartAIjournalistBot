@@ -20,7 +20,7 @@ class PublisherAgent(Runnable):
 
         # 1. Post to CMS
         self.logger.info("   - Posting article to CMS...")
-        post_result = post_article_to_cms.func(article_json, username, password, self.logger)
+        post_result = post_article_to_cms(article_json, username, password, self.logger)
         self.logger.info("   - CMS posting process completed.")
         
         return post_result

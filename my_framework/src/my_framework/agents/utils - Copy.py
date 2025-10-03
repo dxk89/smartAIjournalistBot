@@ -521,7 +521,7 @@ COUNTRY_MAP = {
     "Marshall Islands": "edit-field-country-und-0-960-960-children-973-973-children-976-976",
     "Micronesia, Federated States of": "edit-field-country-und-0-960-960-children-973-973-children-977-977",
     "Nauru": "edit-field-country-und-0-960-960-children-973-973-children-978-978",
-    "Northern Mariana Islands": "edit-field-country-und-0-960-960-children-973-973-children-979-79",
+    "Northern Mariana Islands": "edit-field-country-und-0-960-960-children-973-973-children-979-979",
     "Palau": "edit-field-country-und-0-960-960-children-973-973-children-980-980",
     "Polynesia": "edit-field-country-und-0-960-960-children-981-981",
     "American Samoa": "edit-field-country-und-0-960-960-children-981-981-children-982-982",
@@ -1152,10 +1152,20 @@ def get_publication_ids_from_llm(llm: BaseChatModel, article_title: str, article
     
     return publication_ids
 
-def select_dropdown_by_value(driver, element_id, text_value, mapping_dict, log_func, field_name, required=False, wait_timeout=15, max_retries=3):
+def select_dropdown_by_value(driver, element_id, text_value, mapping_dict, log_func, field_name, required=False, wait_timeout=10):
     """
     Selects a dropdown option by its VALUE attribute using JavaScript injection.
-    Now includes retry logic and better error handling.
+    This bypasses visibility requirements and is more reliable.
+    
+    Args:
+        driver: Selenium WebDriver
+        element_id: ID of the select element
+        text_value: The human-readable text (e.g., "Macroeconomic News")
+        mapping_dict: Dictionary mapping text to values (e.g., DAILY_SUBJECT_MAP)
+        log_func: Logging function
+        field_name: Name of field for logging
+        required: If True, will not skip empty values and will log error
+        wait_timeout: Seconds to wait for element
     """
     from selenium.webdriver.support.ui import WebDriverWait
     from selenium.webdriver.support import expected_conditions as EC
@@ -1181,91 +1191,45 @@ def select_dropdown_by_value(driver, element_id, text_value, mapping_dict, log_f
                 return False
             return False
         
-        # Retry logic
-        for attempt in range(max_retries):
-            try:
-                # Wait for the element to be present
-                wait = WebDriverWait(driver, wait_timeout)
-                element = wait.until(EC.presence_of_element_located((By.ID, element_id)))
-                
-                # Verify it's a select element
-                if element.tag_name != "select":
-                    log_func(f"   - 🔥 Element {element_id} is not a select (is {element.tag_name})")
-                    if required:
-                        log_func(f"   - 🔥 CRITICAL: REQUIRED field is wrong type!")
-                    return False
-                
-                # Scroll element into view
-                driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", element)
-                time.sleep(0.3)
-                
-                # Use JavaScript to set the value directly
-                js_script = f"""
-                var select = document.getElementById('{element_id}');
-                if (select) {{
-                    // Log current state
-                    console.log('Setting {field_name}');
-                    console.log('Current value:', select.value);
-                    console.log('Options count:', select.options.length);
-                    
-                    // Set the value
-                    select.value = '{option_value}';
-                    
-                    // Trigger change event
-                    var event = new Event('change', {{ bubbles: true }});
-                    select.dispatchEvent(event);
-                    
-                    // Also trigger jQuery change if jQuery is present
-                    if (typeof jQuery !== 'undefined') {{
-                        jQuery(select).trigger('change');
-                    }}
-                    
-                    console.log('New value:', select.value);
-                    return select.value;
-                }}
-                return null;
-                """
-                
-                result = driver.execute_script(js_script)
-                
-                if result == option_value:
-                    log_func(f"   - ✅ Selected {field_name}: '{text_value}' (value={option_value})")
-                    return True
-                elif result is None:
-                    log_func(f"   - 🔥 Could not find element {field_name} in DOM (ID: {element_id})")
-                    if attempt < max_retries - 1:
-                        log_func(f"   - Retry {attempt + 2}/{max_retries}...")
-                        time.sleep(2)
-                        continue
-                else:
-                    log_func(f"   - ⚠️ Selection verification failed for {field_name}")
-                    log_func(f"      Expected: {option_value}, Got: {result}")
-                    if attempt < max_retries - 1:
-                        log_func(f"   - Retry {attempt + 2}/{max_retries}...")
-                        time.sleep(2)
-                        continue
-                    return False
-                    
-            except TimeoutException:
-                if attempt < max_retries - 1:
-                    log_func(f"   - ⏱️ Timeout on attempt {attempt + 1}/{max_retries}, retrying...")
-                    time.sleep(2)
-                else:
-                    log_func(f"   - 🔥 Timeout waiting for {field_name} after {max_retries} attempts")
-                    if required:
-                        log_func(f"   - 🔥 CRITICAL: REQUIRED field element not found!")
-                    return False
-            except Exception as e:
-                if attempt < max_retries - 1:
-                    log_func(f"   - ⚠️ Error on attempt {attempt + 1}/{max_retries}: {e}")
-                    time.sleep(2)
-                else:
-                    log_func(f"   - 🔥 Failed after {max_retries} attempts: {e}")
-                    if required:
-                        log_func(f"   - 🔥 CRITICAL: REQUIRED field selection failed!")
-                    return False
+        # Wait for the element to be present (but doesn't need to be visible)
+        wait = WebDriverWait(driver, wait_timeout)
+        try:
+            wait.until(
+                EC.presence_of_element_located((By.ID, element_id))
+            )
+        except TimeoutException:
+            log_func(f"   - 🔥 Timeout waiting for {field_name} element (ID: {element_id})")
+            if required:
+                log_func(f"   - 🔥 CRITICAL: REQUIRED field element not found!")
+            return False
         
-        return False
+        # Use JavaScript to set the value directly - this works even if hidden
+        js_script = f"""
+        var select = document.getElementById('{element_id}');
+        if (select) {{
+            select.value = '{option_value}';
+            // Trigger change event so any listeners are notified
+            var event = new Event('change', {{ bubbles: true }});
+            select.dispatchEvent(event);
+            return select.value;
+        }}
+        return null;
+        """
+        
+        result = driver.execute_script(js_script)
+        
+        if result == option_value:
+            log_func(f"   - ✅ Selected {field_name}: '{text_value}' (value={option_value})")
+            return True
+        elif result is None:
+            log_func(f"   - 🔥 Could not find element {field_name} in DOM (ID: {element_id})")
+            if required:
+                log_func(f"   - 🔥 CRITICAL: REQUIRED field element not found!")
+            return False
+        else:
+            log_func(f"   - ⚠️ Selection verification failed for {field_name}")
+            log_func(f"      Expected: {option_value}, Got: {result}")
+            return False
         
     except Exception as e:
         log_func(f"   - 🔥 Could not select {field_name} ('{text_value}'): {e}")

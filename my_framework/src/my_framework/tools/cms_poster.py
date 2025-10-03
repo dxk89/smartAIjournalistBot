@@ -160,6 +160,17 @@ def post_article_to_cms(article_json: str, username: str, password: str, login_u
     log.info("STARTING CMS POSTING PROCESS")
     log.info("=" * 70)
 
+    close_delay_seconds = 30
+    close_delay_override = os.getenv("CMS_POSTER_CLOSE_DELAY_SECONDS")
+    if close_delay_override is not None:
+        try:
+            close_delay_seconds = max(0, int(close_delay_override))
+        except ValueError:
+            log.warning(
+                "CMS_POSTER_CLOSE_DELAY_SECONDS must be an integer number of seconds; defaulting to 30."
+            )
+            close_delay_seconds = 30
+
     # Parse and transform article data
     try:
         raw_article_data = json.loads(article_json)
@@ -349,5 +360,12 @@ def post_article_to_cms(article_json: str, username: str, password: str, login_u
         log.critical(f"🔥 Unexpected error: {e}", exc_info=True)
         return f"Error: {e}"
     finally:
+        if close_delay_seconds > 0:
+            log.info(
+                f"Waiting {close_delay_seconds} second{'s' if close_delay_seconds != 1 else ''} before closing the browser..."
+            )
+            time.sleep(close_delay_seconds)
+
+
         driver.quit()
         log.info("Browser closed")

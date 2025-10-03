@@ -11,6 +11,41 @@ from ..models.base import BaseChatModel
 from ..core.schemas import HumanMessage
 from typing import List
 
+
+def _safe_print(message: str) -> None:
+    """Fallback printer used when no logger is provided."""
+    print(message)
+
+
+def _log_message(log_obj, message: str, level: str = "info") -> None:
+    """Safely log a message using either a callable or a logger-like object."""
+    if log_obj is None:
+        _safe_print(message)
+        return
+
+    if callable(log_obj):
+        try:
+            log_obj(message)
+        except TypeError:
+            # Some loggers expose bound methods that still evaluate as callable
+            # but expect both the level and message. Delegate back to attribute lookup.
+            pass
+        else:
+            return
+
+    log_method = getattr(log_obj, level, None) if log_obj else None
+    if callable(log_method):
+        log_method(message)
+        return
+
+    fallback = getattr(log_obj, "info", None) if log_obj else None
+    if callable(fallback):
+        fallback(message)
+        return
+
+    _safe_print(message)
+
+
 # --- DATA DICTIONARIES ---
 
 PUBLICATION_MAP = {
@@ -1100,20 +1135,32 @@ def remove_non_bmp_chars(text):
         return text
     return "".join(c for c in text if ord(c) <= 0xFFFF)
 
-def tick_checkboxes_by_id(driver, id_list, log_func):
+
+def tick_checkboxes_by_id(driver, id_list, log_target):
     """
     Force-ticks checkboxes using a JavaScript click, even if they are not visible.
     """
     if not id_list:
         return
-    log_func(f"   - Ticking {len(id_list)} checkboxes by ID...")
+    
+    def emit(message: str, level: str = "info") -> None:
+        try:
+            _log_message(log_target, message, level)
+        except TypeError:
+            _safe_print(message)
+
+    # 👇 these must be indented to stay inside the function
+    emit(f"   - Ticking {len(id_list)} checkboxes by ID...")
     for checkbox_id in id_list:
         try:
             checkbox = driver.find_element(By.ID, checkbox_id)
             driver.execute_script("arguments[0].click();", checkbox)
-            log_func(f"       - ✅ Ticked '{checkbox_id}'")
+            emit(f"       - ✅ Ticked '{checkbox_id}'")
         except Exception:
-            log_func(f"       - ⚠️ Could not find or tick checkbox with ID '{checkbox_id}'")
+            emit(
+                f"       - ⚠️ Could not find or tick checkbox with ID '{checkbox_id}'",
+                level="warning",
+            )
 
 def get_publication_prompt(article_title, article_body, publications):
     """Creates the prompt for selecting publications."""

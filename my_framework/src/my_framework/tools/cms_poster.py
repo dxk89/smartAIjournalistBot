@@ -1,5 +1,5 @@
 # File: src/my_framework/tools/cms_poster.py
-# FIXED VERSION - Proper date calculation and all fields correctly filled
+# COMPLETE FIXED VERSION - All 3 critical fixes implemented
 
 import json
 import os
@@ -12,6 +12,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException
 from my_framework.agents.tools import tool
 from my_framework.agents.utils import (
     PUBLICATION_MAP, COUNTRY_MAP, INDUSTRY_MAP, select_dropdown_by_value, tick_checkboxes_by_id,
@@ -26,6 +27,7 @@ def strip_html(text):
     return re.sub('<[^<]+?>', '', text)
 
 def clean_article_content(article_content):
+    """Remove markdown formatting from all text fields"""
     text_fields = [
         'title', 'body', 'weekly_title_value', 'website_callout_value',
         'social_media_callout_value', 'seo_title_value', 'seo_keywords',
@@ -63,7 +65,7 @@ def post_article_to_cms(article_json_string: str, username: str, password: str, 
         return json.dumps({"error": error_message})
     log.info("✅ Metadata validation successful.")
 
-    # FIX: Calculate publication date - next day if after 7am GMT, today otherwise
+    # Calculate publication date
     gmt = pytz.timezone('GMT')
     now_gmt = datetime.now(gmt)
     
@@ -114,13 +116,64 @@ def post_article_to_cms(article_json_string: str, username: str, password: str, 
         driver.get("https://cms.intellinews.com/node/add/article")
         wait.until(EC.presence_of_element_located((By.ID, "edit-title")))
         
+        # ============================================================================
+        # FIX #1: INCREASED WAIT TIME + VERIFICATION
+        # ============================================================================
         log.info("Expanding all form sections...")
         for legend in driver.find_elements(By.CSS_SELECTOR, "fieldset.collapsed legend"):
             try:
                 driver.execute_script("arguments[0].click();", legend)
             except Exception: pass
-        time.sleep(2)
 
+        # CRITICAL FIX: Wait longer for all fieldsets to fully load
+        log.info("Waiting for all form elements to load...")
+        time.sleep(5)  # Increased from 2 to 5 seconds
+
+        # Verify critical elements are present before proceeding
+        try:
+            wait.until(EC.presence_of_element_located((By.ID, "edit-field-daily-publications-subject-und")))
+            wait.until(EC.presence_of_element_located((By.ID, "edit-field-key-point-und")))
+            wait.until(EC.presence_of_element_located((By.ID, "edit-field-machine-written-und")))
+            log.info("✅ Critical dropdown elements confirmed present")
+        except TimeoutException as e:
+            log.critical(f"🔥 CRITICAL: Required dropdown elements not found after waiting: {e}")
+            # Take a screenshot for debugging
+            try:
+                driver.save_screenshot(f"/tmp/missing_dropdowns_{int(time.time())}.png")
+            except: pass
+            raise Exception("Required form elements not loaded. Cannot proceed.")
+
+        # ============================================================================
+        # DIAGNOSTIC CODE
+        # ============================================================================
+        log.info("--- DIAGNOSTIC: Checking Page State ---")
+        try:
+            current_url = driver.current_url
+            log.info(f"   Current URL: {current_url}")
+            
+            all_selects = driver.find_elements(By.TAG_NAME, "select")
+            log.info(f"   Total <select> elements found: {len(all_selects)}")
+            
+            select_ids = [s.get_attribute('id') for s in all_selects if s.get_attribute('id')]
+            log.info(f"   Select element IDs found: {select_ids[:10]}")
+            
+            page_source = driver.page_source
+            if "edit-field-daily-publications-subject-und" in page_source:
+                log.info("   ✅ Daily Publications Subject element exists in page source")
+            else:
+                log.critical("   🔥 Daily Publications Subject element NOT in page source!")
+            
+            if "edit-field-key-point-und" in page_source:
+                log.info("   ✅ Key Point element exists in page source")
+            else:
+                log.critical("   🔥 Key Point element NOT in page source!")
+                
+        except Exception as e:
+            log.error(f"   Diagnostic check failed: {e}")
+
+        # ============================================================================
+        # FILL STANDARD FIELDS
+        # ============================================================================
         def safe_fill(element_id, value, field_name):
             if not value: 
                 log.info(f"   ⊘ Skipping {field_name} (empty)")
@@ -135,7 +188,6 @@ def post_article_to_cms(article_json_string: str, username: str, password: str, 
         log.info("--- Filling Main Article Fields ---")
         safe_fill("edit-title", article_content.get("title"), "Title")
         
-        # FIX: Byline can be left blank - only fill if provided
         byline = article_content.get("byline_value", "").strip()
         if byline:
             safe_fill("edit-field-byline-und-0-value", byline, "Byline")
@@ -153,31 +205,16 @@ def post_article_to_cms(article_json_string: str, username: str, password: str, 
             driver.switch_to.default_content()
 
         log.info("--- Filling Metadata and SEO Fields ---")
-        # Weekly title = title (already set by editor)
         safe_fill("edit-field-weekly-title-und-0-value", article_content.get("weekly_title_value"), "Weekly Title")
-        
-        # Website callout = first sentence (already set by editor)
         safe_fill("edit-field-website-callout-und-0-value", article_content.get("website_callout_value"), "Website Callout")
-        
-        # Social media callout = first sentence + hashtags (already set by editor)
         safe_fill("edit-field-social-media-callout-und-0-value", article_content.get("social_media_callout_value"), "Social Media Callout")
-        
-        # Abstract = title (already set by editor)
         safe_fill("edit-field-abstract-und-0-value", article_content.get("abstract_value"), "Abstract")
-        
-        # SEO Title
         safe_fill("edit-field-seo-title-und-0-value", article_content.get("seo_title_value"), "SEO Title")
         
-        # FIX: SEO Description is auto-filled by CMS - skip it
         log.info("   ⊘ Skipping SEO Description (auto-filled by CMS)")
         
-        # Keywords = same as Google News Keywords (already set by editor)
         safe_fill("edit-field-seo-keywords-und-0-value", article_content.get("seo_keywords"), "SEO Keywords")
-        
-        # Google News Keywords = same as Keywords (already set by editor)
         safe_fill("edit-field-google-news-keywords-und-0-value", article_content.get("google_news_keywords_value"), "Google News Keywords")
-        
-        # Hashtags
         safe_fill("edit-field-hashtags-und-0-value", ' '.join(article_content.get("hashtags", [])), "Hashtags")
 
         log.info("--- Ticking Publication Checkboxes ---")
@@ -194,52 +231,73 @@ def post_article_to_cms(article_json_string: str, username: str, password: str, 
         industry_ids = [INDUSTRY_MAP[i] for i in industries if i in INDUSTRY_MAP]
         tick_checkboxes_by_id(driver, industry_ids, log.info)
 
+        # ============================================================================
+        # FIX #3: RETRY LOGIC FOR REQUIRED DROPDOWNS WITH INCREASED TIMEOUT
+        # ============================================================================
         log.info("--- Setting REQUIRED Dropdown Fields ---")
-        
+
         # CRITICAL: Daily Subject (REQUIRED)
         daily_subject = article_content.get("daily_subject_value", "Companies and Industries")
-        success = select_dropdown_by_value(
-            driver, 
-            "edit-field-daily-publications-subject-und",
-            daily_subject,
-            DAILY_SUBJECT_MAP,
-            log.info,
-            "Daily Publications Subject",
-            required=True,
-            wait_timeout=10
-        )
-        if not success:
-            log.critical("🔥 CRITICAL: Failed to set Daily Publications Subject! Form will not submit.")
-        
+        for attempt in range(3):  # Retry up to 3 times
+            success = select_dropdown_by_value(
+                driver, 
+                "edit-field-daily-publications-subject-und",
+                daily_subject,
+                DAILY_SUBJECT_MAP,
+                log.info,
+                "Daily Publications Subject",
+                required=True,
+                wait_timeout=20  # Increased timeout
+            )
+            if success:
+                break
+            if attempt < 2:
+                log.info(f"   - Retry attempt {attempt + 2} for Daily Publications Subject...")
+                time.sleep(2)
+            else:
+                log.critical("🔥 CRITICAL: Failed to set Daily Publications Subject after 3 attempts!")
+
         # CRITICAL: Key Point (REQUIRED)
         key_point = article_content.get("key_point_value", "No")
-        success = select_dropdown_by_value(
-            driver,
-            "edit-field-key-point-und",
-            key_point,
-            KEY_POINT_MAP,
-            log.info,
-            "Key Point",
-            required=True,
-            wait_timeout=10
-        )
-        if not success:
-            log.critical("🔥 CRITICAL: Failed to set Key Point! Form will not submit.")
-        
+        for attempt in range(3):  # Retry up to 3 times
+            success = select_dropdown_by_value(
+                driver,
+                "edit-field-key-point-und",
+                key_point,
+                KEY_POINT_MAP,
+                log.info,
+                "Key Point",
+                required=True,
+                wait_timeout=20  # Increased timeout
+            )
+            if success:
+                break
+            if attempt < 2:
+                log.info(f"   - Retry attempt {attempt + 2} for Key Point...")
+                time.sleep(2)
+            else:
+                log.critical("🔥 CRITICAL: Failed to set Key Point after 3 attempts!")
+
         # CRITICAL: Machine Written (REQUIRED)
         machine_written = article_content.get("machine_written_value", "Yes")
-        success = select_dropdown_by_value(
-            driver,
-            "edit-field-machine-written-und",
-            machine_written,
-            MACHINE_WRITTEN_MAP,
-            log.info,
-            "Machine Written",
-            required=True,
-            wait_timeout=10
-        )
-        if not success:
-            log.critical("🔥 CRITICAL: Failed to set Machine Written! Form will not submit.")
+        for attempt in range(3):  # Retry up to 3 times
+            success = select_dropdown_by_value(
+                driver,
+                "edit-field-machine-written-und",
+                machine_written,
+                MACHINE_WRITTEN_MAP,
+                log.info,
+                "Machine Written",
+                required=True,
+                wait_timeout=20  # Increased timeout
+            )
+            if success:
+                break
+            if attempt < 2:
+                log.info(f"   - Retry attempt {attempt + 2} for Machine Written...")
+                time.sleep(2)
+            else:
+                log.critical("🔥 CRITICAL: Failed to set Machine Written after 3 attempts!")
         
         log.info("--- Setting Optional Dropdown Fields ---")
         
@@ -252,10 +310,11 @@ def post_article_to_cms(article_json_string: str, username: str, password: str, 
             BALLOT_BOX_MAP,
             log.info,
             "Ballot Box",
-            required=False
+            required=False,
+            wait_timeout=20
         )
         
-        # Regional Sections (only if relevant)
+        # Regional Sections
         africa_section = article_content.get("africa_daily_section_value", "- None -")
         if africa_section and africa_section != "- None -":
             select_dropdown_by_value(
@@ -265,7 +324,8 @@ def post_article_to_cms(article_json_string: str, username: str, password: str, 
                 AFRICA_DAILY_SECTION_MAP,
                 log.info,
                 "Africa Daily Section",
-                required=False
+                required=False,
+                wait_timeout=20
             )
         
         se_europe_section = article_content.get("southeast_europe_today_sections_value", "- None -")
@@ -277,7 +337,8 @@ def post_article_to_cms(article_json_string: str, username: str, password: str, 
                 SOUTHEAST_EUROPE_SECTIONS_MAP,
                 log.info,
                 "Southeast Europe Today Section",
-                required=False
+                required=False,
+                wait_timeout=20
             )
         
         cee_section = article_content.get("cee_news_watch_country_sections_value", "- None -")
@@ -289,7 +350,8 @@ def post_article_to_cms(article_json_string: str, username: str, password: str, 
                 CEE_NEWS_WATCH_MAP,
                 log.info,
                 "CEE News Watch Country Section",
-                required=False
+                required=False,
+                wait_timeout=20
             )
         
         n_africa_section = article_content.get("n_africa_today_section_value", "- None -")
@@ -301,7 +363,8 @@ def post_article_to_cms(article_json_string: str, username: str, password: str, 
                 N_AFRICA_TODAY_MAP,
                 log.info,
                 "N.Africa Today Section",
-                required=False
+                required=False,
+                wait_timeout=20
             )
         
         middle_east_section = article_content.get("middle_east_today_section_value", "- None -")
@@ -313,7 +376,8 @@ def post_article_to_cms(article_json_string: str, username: str, password: str, 
                 MIDDLE_EAST_TODAY_MAP,
                 log.info,
                 "Middle East Today Section",
-                required=False
+                required=False,
+                wait_timeout=20
             )
         
         baltic_section = article_content.get("baltic_states_today_sections_value", "- None -")
@@ -325,7 +389,8 @@ def post_article_to_cms(article_json_string: str, username: str, password: str, 
                 BALTIC_STATES_TODAY_MAP,
                 log.info,
                 "Baltic States Today Section",
-                required=False
+                required=False,
+                wait_timeout=20
             )
         
         asia_section = article_content.get("asia_today_sections_value", "- None -")
@@ -337,7 +402,8 @@ def post_article_to_cms(article_json_string: str, username: str, password: str, 
                 ASIA_TODAY_SECTIONS_MAP,
                 log.info,
                 "Asia Today Section",
-                required=False
+                required=False,
+                wait_timeout=20
             )
         
         latam_section = article_content.get("latam_today_value", "- None -")
@@ -349,7 +415,8 @@ def post_article_to_cms(article_json_string: str, username: str, password: str, 
                 LATAM_TODAY_MAP,
                 log.info,
                 "LatAm Today",
-                required=False
+                required=False,
+                wait_timeout=20
             )
         
         log.info("--- Setting Publication Date ---")

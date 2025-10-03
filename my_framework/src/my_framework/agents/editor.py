@@ -1,5 +1,5 @@
 # File: src/my_framework/agents/editor.py
-# FIXED VERSION - Proper metadata generation before browser automation
+# FIXED VERSION - Proper callout length enforcement (232 chars max)
 
 import json
 from typing import List
@@ -12,7 +12,7 @@ from my_framework.apps.schemas import ArticleMetadata
 from my_framework.agents.loggerbot import LoggerBot
 from my_framework.agents.utils import COUNTRY_MAP, PUBLICATION_MAP, INDUSTRY_MAP
 
-# --- LLM Call Functions Moved Here To Prevent Circular Imports ---
+# --- LLM Call Functions ---
 
 def _get_country_selection(llm: BaseChatModel, article_text: str, logger=None) -> List[str]:
     log = logger or LoggerBot.get_logger()
@@ -116,7 +116,11 @@ def _get_seo_metadata(llm: BaseChatModel, revised_article: str, logger=None) -> 
             metadata['weekly_title_value'] = metadata['title']
             log.info(f"   - Set weekly_title_value = title")
         
-        # FIX: Extract first sentence for callouts
+        # ============================================================================
+        # FIX #2: CALLOUT LENGTH ENFORCEMENT (232 CHARACTERS MAX)
+        # ============================================================================
+        
+        # Extract first sentence for callouts
         paragraphs = revised_article.strip().split('\n')
         first_sentence = ""
         for p in paragraphs:
@@ -128,41 +132,64 @@ def _get_seo_metadata(llm: BaseChatModel, revised_article: str, logger=None) -> 
                     first_sentence = sentences[0].strip() + '.'
                     break
         
-        # FIX: Website callout = first sentence (max 250 chars)
+        # Website callout = first sentence (max 232 chars - ENFORCED)
         if first_sentence:
-            metadata['website_callout_value'] = first_sentence[:247] + ('...' if len(first_sentence) > 250 else '')
-            log.info(f"   - Set website_callout_value from first sentence ({len(metadata['website_callout_value'])} chars)")
+            if len(first_sentence) > 232:
+                # Truncate at word boundary before 229 chars (leave room for "...")
+                truncated = first_sentence[:229].rsplit(' ', 1)[0] + '...'
+                metadata['website_callout_value'] = truncated
+                log.info(f"   - Set website_callout_value (truncated to {len(truncated)} chars)")
+            else:
+                metadata['website_callout_value'] = first_sentence
+                log.info(f"   - Set website_callout_value ({len(first_sentence)} chars)")
         
-        # FIX: Social media callout = first sentence + hashtags (max 250 chars)
+        # Social media callout = first sentence + hashtags (max 232 chars - ENFORCED)
         if first_sentence and metadata.get('hashtags'):
-            hashtags_str = ' '.join(metadata['hashtags'][:3])  # Use up to 3 hashtags
-            social_callout = f"{first_sentence} {hashtags_str}"
-            if len(social_callout) > 250:
-                # Trim the sentence to fit hashtags
-                max_sentence_len = 250 - len(hashtags_str) - 4  # -4 for space and ellipsis
-                social_callout = f"{first_sentence[:max_sentence_len]}... {hashtags_str}"
-            metadata['social_media_callout_value'] = social_callout[:250]
-            log.info(f"   - Set social_media_callout_value with hashtags ({len(metadata['social_media_callout_value'])} chars)")
+            # Calculate available space for sentence
+            hashtags_list = metadata['hashtags'][:3]  # Max 3 hashtags
+            hashtags_str = ' '.join(hashtags_list)
+            available_space = 232 - len(hashtags_str) - 1  # -1 for space between sentence and hashtags
+            
+            if len(first_sentence) > available_space:
+                # Truncate sentence to fit with hashtags
+                truncated_sentence = first_sentence[:available_space-3].rsplit(' ', 1)[0] + '...'
+                social_callout = f"{truncated_sentence} {hashtags_str}"
+            else:
+                social_callout = f"{first_sentence} {hashtags_str}"
+            
+            # Final safety check
+            if len(social_callout) > 232:
+                social_callout = social_callout[:229] + '...'
+            
+            metadata['social_media_callout_value'] = social_callout
+            log.info(f"   - Set social_media_callout_value with hashtags ({len(social_callout)} chars)")
         elif first_sentence:
-            metadata['social_media_callout_value'] = first_sentence[:247] + ('...' if len(first_sentence) > 250 else '')
+            # No hashtags - just use sentence (with length check)
+            if len(first_sentence) > 232:
+                truncated = first_sentence[:229].rsplit(' ', 1)[0] + '...'
+                metadata['social_media_callout_value'] = truncated
+            else:
+                metadata['social_media_callout_value'] = first_sentence
             log.info(f"   - Set social_media_callout_value without hashtags ({len(metadata['social_media_callout_value'])} chars)")
         
-        # FIX: Google news keywords = SEO keywords
+        # ============================================================================
+        
+        # Google news keywords = SEO keywords
         if metadata.get('seo_keywords'):
             metadata['google_news_keywords_value'] = metadata['seo_keywords']
             log.info(f"   - Set google_news_keywords_value = seo_keywords")
         
-        # FIX: Abstract = title
+        # Abstract = title
         if 'title' in metadata:
             metadata['abstract_value'] = metadata['title']
             log.info(f"   - Set abstract_value = title")
         
-        # FIX: Remove SEO description (auto-filled by CMS)
+        # Remove SEO description (auto-filled by CMS)
         if 'seo_description' in metadata:
             metadata.pop('seo_description')
             log.info(f"   - Removed seo_description (auto-filled by CMS)")
         
-        # FIX: Byline should be empty by default
+        # Byline should be empty by default
         metadata['byline_value'] = ""
         log.info(f"   - Set byline_value to empty (will be filled by CMS or left blank)")
         

@@ -8,11 +8,11 @@ uvicorn==0.23.2
 requests==2.31.0
 beautifulsoup4==4.12.3
 selenium==4.10.0
-lxml>=5.1.0
+lxml==4.9.3
 
 # AI and data handling
 openai==1.9.0
-pydantic==1.10.13
+pydantic==1.10.15
 numpy==1.26.2
 nltk==3.8.1
 

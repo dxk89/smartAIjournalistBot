@@ -3,6 +3,7 @@
 # Core web framework
 fastapi==0.110.0
 uvicorn==0.23.2
+Jinja2==3.1.4
 
 # HTTP requests and web scraping
 requests==2.31.0

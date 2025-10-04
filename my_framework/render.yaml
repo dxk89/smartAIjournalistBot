@@ -1,12 +1,12 @@
-# File: my-journalist-project/my_framework/render.yaml
+# File: render.yaml
 services:
   - type: web
     name: my-reasoning-engine
     env: python
     plan: free
     buildCommand: |
-      bash render-build.sh
-      pip install -r requirements.txt
+      bash my_framework/render-build.sh
+      pip install -r my_framework/requirements.txt
     startCommand: |
       echo "--- Starting Gunicorn Server ---"
       cd my_framework && uvicorn app.server:app --host 0.0.0.0 --port $PORT

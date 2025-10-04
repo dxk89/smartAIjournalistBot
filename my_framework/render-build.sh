@@ -18,6 +18,7 @@ if [[ ! -d "$CHROME_DIR/chrome-linux64" ]]; then
 else
   echo "...Using cached Chrome"
 fi
+cd /opt/render/project/src # Go back to project root
 
 # --- CHROMEDRIVER INSTALLATION ---
 DRIVER_DIR="$STORAGE_DIR/chromedriver"
@@ -33,13 +34,13 @@ if [[ ! -f "$DRIVER_DIR/chromedriver" ]]; then
 else
   echo "...Using cached ChromeDriver"
 fi
+cd /opt/render/project/src # Go back to project root
 
 # --- CREATE .env FILE ---
 echo "Creating .env file with executable paths..."
-cat <<EOF > "/opt/render/project/src/.env"
+cat <<EOF > "/opt/render/project/src/my_framework/.env"
 GOOGLE_CHROME_BIN="$CHROME_DIR/chrome-linux64/chrome"
 CHROMEDRIVER_PATH="$DRIVER_DIR/chromedriver"
 EOF
 
 echo "Build script finished."
-cd "$HOME/project/src"

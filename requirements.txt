@@ -12,7 +12,7 @@ lxml==4.9.3
 
 # AI and data handling
 openai==1.9.0
-pydantic==2.5.2
+pydantic==1.10.13
 numpy==1.26.2
 nltk==3.8.1
 

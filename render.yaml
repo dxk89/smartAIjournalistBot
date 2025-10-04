@@ -5,6 +5,7 @@ services:
     env: python
     plan: free
     buildCommand: |
+      pip cache purge
       bash my_framework/render-build.sh
       pip install -r my_framework/requirements.txt
     startCommand: |

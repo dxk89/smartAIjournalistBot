@@ -1,7 +1,7 @@
 # Place this file in the root directory of your project
 services:
   - type: web
-    name: my-reasoning-engine
+    name: smartAIjournalistBot
     env: python
     plan: free
     buildCommand: |
@@ -11,7 +11,5 @@ services:
       echo "--- Starting Gunicorn Server ---"
       cd my_framework && uvicorn app.server:app --host 0.0.0.0 --port $PORT
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.12.4 # This is the crucial line
       - key: RENDER
         value: "true"

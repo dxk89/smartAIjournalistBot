@@ -9,6 +9,7 @@ requests==2.31.0
 beautifulsoup4==4.12.3
 selenium==4.10.0
 lxml==4.9.3
+webdriver-manager==4.0.1
 
 # AI and data handling
 openai==1.9.0

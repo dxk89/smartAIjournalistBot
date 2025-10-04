@@ -15,8 +15,3 @@ services:
         value: 3.12.4
       - key: RENDER
         value: "true"
-      # --- FIX FOR RUST-BASED PACKAGES ---
-      - key: CARGO_HOME
-        value: /opt/render/project/.render/cargo
-      - key: RUSTUP_HOME
-        value: /opt/render/project/.render/rustup

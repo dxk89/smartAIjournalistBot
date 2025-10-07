@@ -8,7 +8,8 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException, ElementClickInterceptedException
-from my_framework.src.my_framework.agents.loggerbot import LoggerBot
+# Corrected import path below
+from my_framework.agents.loggerbot import LoggerBot
 
 # Initialize LoggerBot
 logger = LoggerBot(name="CMS Poster")

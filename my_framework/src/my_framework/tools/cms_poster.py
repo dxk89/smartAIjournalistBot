@@ -8,11 +8,10 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.common.exceptions import TimeoutException, NoSuchElementException, ElementClickInterceptedException
-# Corrected import path below
 from my_framework.agents.loggerbot import LoggerBot
 
-# Initialize LoggerBot
-logger = LoggerBot(name="CMS Poster")
+# Initialize LoggerBot correctly
+logger = LoggerBot.get_logger()
 
 def get_cms_credentials():
     """Fetches CMS credentials from environment variables."""

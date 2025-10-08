@@ -43,4 +43,8 @@ GOOGLE_CHROME_BIN="$CHROME_DIR/chrome-linux64/chrome"
 CHROMEDRIVER_PATH="$DRIVER_DIR/chromedriver"
 EOF
 
+# --- NLTK DATA DOWNLOAD ---
+echo "...Downloading NLTK 'punkt' data"
+python3.12 -m nltk.downloader punkt
+
 echo "Build script finished."

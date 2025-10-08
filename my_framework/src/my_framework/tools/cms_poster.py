@@ -13,24 +13,22 @@ from my_framework.agents.loggerbot import LoggerBot
 # Initialize LoggerBot correctly
 logger = LoggerBot.get_logger()
 
-def get_cms_credentials():
-    """Fetches CMS credentials from environment variables."""
+def get_cms_credentials(**kwargs):
+    """Fetches CMS credentials from kwargs or environment variables."""
     return {
-        "url": os.environ.get("CMS_URL"),
-        "username": os.environ.get("CMS_USERNAME"),
-        "password": os.environ.get("CMS_PASSWORD"),
+        "url": kwargs.get("cms_url") or os.environ.get("CMS_URL"),
+        "username": kwargs.get("username") or os.environ.get("CMS_USERNAME"),
+        "password": kwargs.get("password") or os.environ.get("CMS_PASSWORD"),
     }
 
 def transform_article_for_cms(article_data, cms_config):
     """Transforms the article data to match CMS requirements."""
     logger.info("Transforming article data for CMS...")
     
-    # Mapping for countries, publications, and industries
     country_map = {country['name']: country['id'] for country in cms_config.get('countries', [])}
     publication_map = {pub['name']: pub['id'] for pub in cms_config.get('publications', [])}
     industry_map = {ind['name']: ind['id'] for ind in cms_config.get('industries', [])}
 
-    # Transform data
     transformed_data = {
         'title': article_data['title'],
         'introduction': article_data['summary'],
@@ -57,7 +55,7 @@ def validate_transformed_data(data):
     logger.info("✅ All required fields present")
     return True
 
-def post_article_to_cms(article_json: str, cms_config_json: str) -> str:
+def post_article_to_cms(article_json: str, cms_config_json: str, **kwargs) -> str:
     logger.info("=" * 70)
     logger.info("STARTING CMS POSTING PROCESS")
     logger.info("=" * 70)
@@ -70,27 +68,23 @@ def post_article_to_cms(article_json: str, cms_config_json: str) -> str:
         logger.error(f"❌ Failed to parse JSON: {e}")
         return f"Error: Failed to parse JSON - {e}"
 
-    # Transform and validate data
     transformed_data = transform_article_for_cms(article_data, cms_config)
     if not validate_transformed_data(transformed_data):
         return "Error: Validation of transformed data failed."
 
-    credentials = get_cms_credentials()
+    credentials = get_cms_credentials(**kwargs)
     if not all(credentials.values()):
-        logger.error("❌ Missing CMS credentials in environment variables.")
+        logger.error("❌ Missing CMS credentials.")
         return "Error: Missing CMS credentials."
 
-    # --- SELENIUM WEBDRIVER SETUP ---
     chrome_options = webdriver.ChromeOptions()
     
-    # Check if running in Render environment
     if 'RENDER' in os.environ:
         logger.info("Render environment detected - running headless")
         chrome_options.add_argument("--headless")
         chrome_options.add_argument("--no-sandbox")
         chrome_options.add_argument("--disable-dev-shm-usage")
         
-        # Get paths from environment variables set by render-build.sh
         chrome_binary_path = os.environ.get('GOOGLE_CHROME_BIN')
         chromedriver_path = os.environ.get('CHROMEDRIVER_PATH')
 
@@ -102,7 +96,6 @@ def post_article_to_cms(article_json: str, cms_config_json: str) -> str:
         service = Service(executable_path=chromedriver_path)
     else:
         logger.info("Local environment detected - running with UI")
-        # Use webdriver-manager for local development
         from webdriver_manager.chrome import ChromeDriverManager
         service = Service(ChromeDriverManager().install())
 
@@ -113,43 +106,30 @@ def post_article_to_cms(article_json: str, cms_config_json: str) -> str:
         driver.get(credentials["url"])
         wait = WebDriverWait(driver, 20)
 
-        # Login
         logger.info("Logging into CMS...")
         wait.until(EC.presence_of_element_located((By.ID, "username"))).send_keys(credentials["username"])
         driver.find_element(By.ID, "password").send_keys(credentials["password"])
         driver.find_element(By.ID, "kc-login").click()
         logger.info("✅ Login successful")
 
-        # Navigate to create new article
         logger.info("Navigating to 'Create New Article' page...")
         wait.until(EC.element_to_be_clickable((By.XPATH, "//a[contains(., 'Content Management')]"))).click()
         wait.until(EC.element_to_be_clickable((By.XPATH, "//a[contains(., 'Create content')]"))).click()
         wait.until(EC.element_to_be_clickable((By.XPATH, "//a[contains(., 'Article')]"))).click()
         logger.info("✅ Reached article creation page")
 
-        # Fill out form
         logger.info("✍️ Filling out article form...")
         wait.until(EC.presence_of_element_located((By.ID, "edit-title-0-value"))).send_keys(transformed_data['title'])
         
-        # Switch to iframe for body text
         wait.until(EC.frame_to_be_available_and_switch_to_it((By.XPATH, "//iframe[contains(@title, 'Rich Text Editor, Body field')]")))
         body_editable = driver.find_element(By.XPATH, "/html/body")
         body_editable.send_keys(transformed_data['full_text'])
         driver.switch_to.default_content()
         logger.info("   - Title and body filled.")
         
-        # Add other fields (countries, publications, etc.)
-        # This part is highly dependent on the CMS's UI (e.g., are they select boxes, autocomplete fields?)
-        # Example for a simple multi-select box:
-        # for country_id in transformed_data['countries']:
-        #     Select(driver.find_element(By.ID, "edit-field-countries")).select_by_value(str(country_id))
-
         logger.info("✅ Form filled successfully")
 
-        # Save the article
         logger.info("💾 Saving the article...")
-        # driver.find_element(By.ID, "edit-submit").click()
-        # wait.until(EC.presence_of_element_located((By.XPATH, "//div[contains(@aria-label, 'Status message')]")))
         logger.warning("   - Skipping final save for safety. Uncomment to enable.")
         
         final_url = driver.current_url

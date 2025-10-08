@@ -2,7 +2,7 @@
 
 import json
 from my_framework.models.openai import ChatOpenAI
-from my_framework.parsers.standard import JsonParser # Corrected import
+from my_framework.parsers.standard import JsonOutputParser # Corrected import
 from my_framework.prompts.templates import planning_template
 from my_framework.agents.researcher import ResearcherAgent
 from my_framework.agents.writer import WriterAgent
@@ -21,7 +21,7 @@ class OrchestratorAgent:
             temperature=0.5,
             api_key=self.context.get('openai_api_key')
         )
-        self.parser = JsonParser() # Corrected class name
+        self.parser = JsonOutputParser() # Corrected class name
         self.researcher = ResearcherAgent(context)
         
         # Conditionally initialize the writer agent based on Style Guru's status
@@ -44,8 +44,8 @@ class OrchestratorAgent:
             plan = self.parser.parse(response)
             logger.info("Orchestrator: 📝 Plan received from LLM")
             return plan
-        except json.JSONDecodeError:
-            logger.error("Orchestrator: ❌ Failed to parse plan from LLM response.")
+        except (json.JSONDecodeError, ValueError) as e:
+            logger.error(f"Orchestrator: ❌ Failed to parse plan from LLM response: {e}")
             return None
 
     def invoke(self, initial_context):
@@ -58,17 +58,13 @@ class OrchestratorAgent:
         if not plan:
             return {"error": "Failed to generate a workflow plan."}
 
-        # Initialize a dictionary to hold the results from each step
         workflow_results = {}
-        
-        # Add initial context to the results
         workflow_results.update(initial_context)
 
         for i, step in enumerate(plan.get("plan", []), 1):
             agent_name = step.get("agent")
             instruction = step.get("instruction")
             
-            # Prepare the input for the agent, combining previous results with the new instruction
             agent_input = workflow_results.copy()
             agent_input["instruction"] = instruction
 

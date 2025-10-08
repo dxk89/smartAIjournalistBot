@@ -95,6 +95,9 @@ class OrchestratorAgent(Runnable):
                     agent_input[key] = context.get(lookup_key)
                     self.logger.debug(f"Orchestrator:  dynamically setting '{key}' from context.")
 
+            if agent_name == "publish":
+                agent_input["cms_config_json"] = context.get("cms_config_json")
+
             if agent_name in self.agent_map:
                 agent = self.agent_map[agent_name]
                 result = agent.invoke(agent_input)
@@ -136,7 +139,8 @@ class OrchestratorAgent(Runnable):
         publisher_input = {
             "article_json_string": article_json,
             "username": input.get("username"),
-            "password": input.get("password")
+            "password": input.get("password"),
+            "cms_config_json": input.get("cms_config_json")
         }
         result = self.publisher.invoke(publisher_input)
         

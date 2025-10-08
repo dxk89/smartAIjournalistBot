@@ -2,7 +2,7 @@
 
 import json
 from my_framework.models.openai import ChatOpenAI
-from my_framework.parsers.standard import StandardParser
+from my_framework.parsers.standard import JsonParser # Corrected import
 from my_framework.prompts.templates import planning_template
 from my_framework.agents.researcher import ResearcherAgent
 from my_framework.agents.writer import WriterAgent
@@ -21,7 +21,7 @@ class OrchestratorAgent:
             temperature=0.5,
             api_key=self.context.get('openai_api_key')
         )
-        self.parser = StandardParser()
+        self.parser = JsonParser() # Corrected class name
         self.researcher = ResearcherAgent(context)
         
         # Conditionally initialize the writer agent based on Style Guru's status
@@ -40,7 +40,8 @@ class OrchestratorAgent:
         prompt = planning_template.format(user_goal=user_goal)
         response = self.llm.invoke(prompt)
         try:
-            plan = json.loads(response)
+            # Use the correct parser instance
+            plan = self.parser.parse(response)
             logger.info("Orchestrator: 📝 Plan received from LLM")
             return plan
         except json.JSONDecodeError:
@@ -81,16 +82,13 @@ class OrchestratorAgent:
             elif agent_name == "Edit":
                 result = self.editor.invoke(agent_input)
             elif agent_name == "Publish":
-                # Ensure cms_config_json is in the input for the publisher
                 agent_input['cms_config_json'] = self.context.get('cms_config_json')
                 result = self.publisher.invoke(agent_input)
             
             if result:
-                 # Ensure result is a dictionary before updating
                 if isinstance(result, dict):
                     workflow_results.update(result)
                 else:
-                    # If result is not a dict, store it under a generic key
                     workflow_results[f'step_{i}_output'] = result
 
             logger.info(f"Orchestrator: ✅ Step {i} completed.")

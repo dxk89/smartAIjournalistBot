@@ -16,8 +16,14 @@ httpx==0.24.1
 # AI and data handling
 openai==1.9.0
 pydantic==2.6.4
-numpy==1.26.2
+numpy==1.26.4
 nltk==3.8.1
+pandas==2.2.2
+scikit-learn==1.4.2
+joblib==1.4.0
+tensorflow==2.15.0
+keras==2.15.0
+
 
 # Google Sheets Integration
 gspread==5.10.0
@@ -27,9 +33,3 @@ google-auth-oauthlib==1.0.0
 python-dotenv==1.0.0
 pytz
 apscheduler==3.10.4
-
-numpy==1.26.4
-pandas==2.2.2
-scikit-learn==1.4.2
-nltk==3.8.1
-joblib==1.4.0

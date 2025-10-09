@@ -28,12 +28,15 @@ from my_framework.agents.orchestrator import OrchestratorAgent
 from my_framework.agents.loggerbot import LoggerBot, log_queue
 
 # Try to import style guru components
+style_guru_import_error = None
 try:
     from my_framework.style_guru.training import build_dataset, train_model
     from my_framework.style_guru.deep_analyzer import deep_style_analysis
     STYLE_GURU_AVAILABLE = True
 except ImportError as e:
     STYLE_GURU_AVAILABLE = False
+    style_guru_import_error = e
+
 
 logger = LoggerBot.get_logger()
 active_connections: list[WebSocket] = []
@@ -220,8 +223,9 @@ async def update_style_guru(background_tasks: BackgroundTasks, num_articles: int
     global style_guru_updating
     
     if not STYLE_GURU_AVAILABLE:
-        raise HTTPException(status_code=501, detail="Style Guru components not installed")
-    
+        logger.error(f"Style Guru components not installed. Import error: {style_guru_import_error}")
+        raise HTTPException(status_code=501, detail=f"Style Guru components not installed. Import error: {style_guru_import_error}")
+
     if style_guru_updating:
         raise HTTPException(status_code=409, detail="Style Guru update already in progress")
     

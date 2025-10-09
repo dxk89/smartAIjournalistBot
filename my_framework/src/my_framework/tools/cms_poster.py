@@ -204,14 +204,27 @@ def post_article_to_cms(article_json: str, username: str, password: str, login_u
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
     chrome_options.add_argument("--window-size=1920,1080")
-
-    if os.environ.get('RENDER') == 'true':
+    
+    # --- FIX: Properly separate Render and Local setup ---
+    is_render_env = os.environ.get('RENDER')
+    
+    if is_render_env:
         log.info("Render environment detected - running headless")
         chrome_options.add_argument("--headless")
+        
+        chrome_binary_path = os.environ.get("GOOGLE_CHROME_BIN")
+        chromedriver_path = os.environ.get("CHROMEDRIVER_PATH")
+
+        if not chrome_binary_path or not chromedriver_path:
+            log.error("❌ Chrome binary/driver path env variables not set in Render.")
+            return "Error: Chrome binary/driver path environment variables not set."
+        
+        chrome_options.binary_location = chrome_binary_path
+        service = Service(executable_path=chromedriver_path)
     else:
         log.info("Local environment detected - showing browser")
-
-    service = Service(ChromeDriverManager().install())
+        service = Service(ChromeDriverManager().install())
+        
     driver = webdriver.Chrome(service=service, options=chrome_options)
     wait = WebDriverWait(driver, 60)
 

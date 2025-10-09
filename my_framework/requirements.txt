@@ -21,8 +21,8 @@ nltk==3.8.1
 pandas==2.2.2
 scikit-learn==1.4.2
 joblib==1.4.0
-tensorflow==2.15.0
-keras==2.15.0
+tensorflow==2.16.1
+keras==3.0.0
 
 
 # Google Sheets Integration

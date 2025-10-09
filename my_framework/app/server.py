@@ -31,8 +31,8 @@ from my_framework.tools.google_sheets import GoogleSheetsTool
 # Try to import style guru components
 style_guru_import_error = None
 try:
-    # FIX: Simplified import using the new __init__.py file
-    from my_framework.style_guru import build_dataset, train_model, deep_style_analysis
+    from my_framework.style_guru.training import build_dataset, train_model
+    from my_framework.style_guru.deep_analyzer import deep_style_analysis
     STYLE_GURU_AVAILABLE = True
 except ImportError as e:
     STYLE_GURU_AVAILABLE = False
@@ -188,21 +188,10 @@ def update_style_guru_background(num_articles: int = 100):
         return
     
     try:
-        # FIX: Initialize Google Sheets and get the sheet object
-        logger.info("   - Initializing Google Sheets connection...")
-        sheets_tool = GoogleSheetsTool()
-        sheet = sheets_tool.get_sheet()
-        if not sheet:
-            logger.error("   - ❌ Failed to initialize Google Sheets. Aborting Style Guru update.")
-            style_guru_updating = False
-            return
-        logger.info("   - ✅ Google Sheets connection successful.")
-
         logger.info(f"🎨 Starting Style Guru update with {num_articles} articles...")
         
         logger.info("[1/3] Running deep analysis...")
-        # FIX: Pass the sheet object to the analysis function
-        framework = deep_style_analysis(sheet=sheet, num_articles=num_articles)
+        framework = deep_style_analysis(num_articles=num_articles)
         
         if not framework:
             logger.error("❌ Deep analysis failed!")

@@ -36,6 +36,10 @@ else
 fi
 cd /opt/render/project/src # Go back to project root
 
+# --- ADD THIS LINE ---
+# Run the Style Guru setup to download NLTK data
+python setup_style_guru.py
+
 # --- CREATE .env FILE ---
 echo "Creating .env file with executable paths..."
 cat <<EOF > "/opt/render/project/src/my_framework/.env"

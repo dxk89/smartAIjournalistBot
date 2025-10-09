@@ -26,12 +26,13 @@ if src_path not in sys.path:
 from my_framework.models.openai import ChatOpenAI
 from my_framework.agents.orchestrator import OrchestratorAgent
 from my_framework.agents.loggerbot import LoggerBot, log_queue
+from my_framework.tools.google_sheets import GoogleSheetsTool
 
 # Try to import style guru components
 style_guru_import_error = None
 try:
-    from my_framework.style_guru.training import build_dataset, train_model
-    from my_framework.style_guru.deep_analyzer import deep_style_analysis
+    # FIX: Simplified import using the new __init__.py file
+    from my_framework.style_guru import build_dataset, train_model, deep_style_analysis
     STYLE_GURU_AVAILABLE = True
 except ImportError as e:
     STYLE_GURU_AVAILABLE = False
@@ -187,10 +188,21 @@ def update_style_guru_background(num_articles: int = 100):
         return
     
     try:
+        # FIX: Initialize Google Sheets and get the sheet object
+        logger.info("   - Initializing Google Sheets connection...")
+        sheets_tool = GoogleSheetsTool()
+        sheet = sheets_tool.get_sheet()
+        if not sheet:
+            logger.error("   - ❌ Failed to initialize Google Sheets. Aborting Style Guru update.")
+            style_guru_updating = False
+            return
+        logger.info("   - ✅ Google Sheets connection successful.")
+
         logger.info(f"🎨 Starting Style Guru update with {num_articles} articles...")
         
         logger.info("[1/3] Running deep analysis...")
-        framework = deep_style_analysis(max_articles=num_articles)
+        # FIX: Pass the sheet object to the analysis function
+        framework = deep_style_analysis(sheet=sheet, num_articles=num_articles)
         
         if not framework:
             logger.error("❌ Deep analysis failed!")
@@ -288,7 +300,6 @@ async def style_guru_admin(request: Request):
         except Exception as e:
             logger.error(f"Error reading framework: {e}")
     
-    # FIX: Changed to "style-guru.html" to match the new filename
     return templates.TemplateResponse("style-guru.html", {
         "request": request,
         "framework_info": framework_info,

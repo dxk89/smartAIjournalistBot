@@ -27,10 +27,10 @@ from my_framework.models.openai import ChatOpenAI
 from my_framework.agents.orchestrator import OrchestratorAgent
 from my_framework.agents.loggerbot import LoggerBot, log_queue
 
-# Try to import style guru components
+# --- Style Guru Imports ---
+# FIX: Defer the import of deep_analyzer to prevent circular dependencies
 style_guru_import_error = None
 try:
-    # FIX: Import only what's needed at startup to prevent circular dependencies
     from my_framework.style_guru.training import build_dataset, train_model
     STYLE_GURU_AVAILABLE = True
 except ImportError as e:
@@ -181,11 +181,6 @@ def update_style_guru_background(num_articles: int = 100):
     global style_guru_updating
     style_guru_updating = True
     
-    if not STYLE_GURU_AVAILABLE:
-        logger.error("❌ Style Guru components not available!")
-        style_guru_updating = False
-        return
-    
     try:
         # FIX: Import deep_analyzer here to prevent circular import on startup
         from my_framework.style_guru.deep_analyzer import deep_style_analysis
@@ -193,6 +188,7 @@ def update_style_guru_background(num_articles: int = 100):
         logger.info(f"🎨 Starting Style Guru update with {num_articles} articles...")
         
         logger.info("[1/3] Running deep analysis...")
+        # Pass max_articles to the analysis function
         framework = deep_style_analysis(max_articles=num_articles)
         
         if not framework:
@@ -212,6 +208,8 @@ def update_style_guru_background(num_articles: int = 100):
         
         logger.info("🎉 Style Guru update complete! Framework is now active.")
         
+    except ImportError as e:
+        logger.critical(f"🔥 Style Guru update failed on import: {e}", exc_info=True)
     except Exception as e:
         logger.critical(f"🔥 Style Guru update failed: {e}", exc_info=True)
     finally:

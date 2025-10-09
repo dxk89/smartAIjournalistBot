@@ -5,6 +5,10 @@ import gspread
 from google.oauth2.service_account import Credentials
 from ..agents.tools import tool
 from ..agents.loggerbot import LoggerBot
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 class GoogleSheetsTool:
     def __init__(self, logger=None):
@@ -23,6 +27,23 @@ class GoogleSheetsTool:
             self.logger.warning(f"⚠️ Google Sheets credentials not found at '{creds_path}'. Google Sheets tool will be disabled.")
         except Exception as e:
             self.logger.error(f"🔥 An unexpected error occurred during Google Sheets initialization: {e}", exc_info=True)
+
+    def get_sheet(self):
+        """Opens and returns the Google Sheet specified by SHEET_URL."""
+        if not self.client:
+            self.logger.error("Google Sheets tool is disabled. Cannot get sheet.")
+            return None
+        try:
+            sheet_url = os.environ.get("SHEET_URL")
+            if not sheet_url:
+                self.logger.error("SHEET_URL not found in environment variables.")
+                return None
+            self.logger.info(f"   - Opening Google Sheet: {sheet_url}")
+            sheet = self.client.open_by_url(sheet_url)
+            return sheet
+        except Exception as e:
+            self.logger.error(f"Failed to open Google Sheet: {e}", exc_info=True)
+            return None
 
     @tool
     def read_tasks_from_sheet(self, sheet_url: str, worksheet_name: str) -> list[dict]:

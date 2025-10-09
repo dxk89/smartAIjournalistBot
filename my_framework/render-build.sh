@@ -2,8 +2,13 @@
 # exit on any error
 set -o errexit
 
+# --- INSTALL PYTHON DEPENDENCIES ---
+echo "Installing Python dependencies from requirements.txt..."
+pip install -r requirements.txt
+
+# --- ENVIRONMENT AND CHROME SETUP ---
 STORAGE_DIR="/opt/render/project/.render"
-CHROME_VERSION="140.0.7339.185"
+CHROME_VERSION="124.0.6367.60" # A recent stable version
 
 # --- CHROME INSTALLATION ---
 CHROME_DIR="$STORAGE_DIR/chrome"
@@ -18,7 +23,7 @@ if [[ ! -d "$CHROME_DIR/chrome-linux64" ]]; then
 else
   echo "...Using cached Chrome"
 fi
-cd /opt/render/project/src # Go back to project root
+cd /opt/render/project/src # Go back to the original directory
 
 # --- CHROMEDRIVER INSTALLATION ---
 DRIVER_DIR="$STORAGE_DIR/chromedriver"
@@ -28,27 +33,25 @@ if [[ ! -f "$DRIVER_DIR/chromedriver" ]]; then
   cd "$DRIVER_DIR"
   wget -q -O chromedriver-linux64.zip "https://storage.googleapis.com/chrome-for-testing-public/${CHROME_VERSION}/linux64/chromedriver-linux64.zip"
   unzip -q chromedriver-linux64.zip
+  # The chromedriver is now inside a nested directory, adjust the move command
   mv chromedriver-linux64/chromedriver .
   rm -rf chromedriver-linux64 chromedriver-linux64.zip
   chmod +x "$DRIVER_DIR/chromedriver"
 else
   echo "...Using cached ChromeDriver"
 fi
-cd /opt/render/project/src # Go back to project root
+cd /opt/render/project/src # Go back to the original directory
 
-# --- ADD THIS LINE ---
-# Run the Style Guru setup to download NLTK data
+# --- STYLE GURU SETUP ---
+echo "Running Style Guru setup..."
 python setup_style_guru.py
 
 # --- CREATE .env FILE ---
 echo "Creating .env file with executable paths..."
+# This ensures the application can find the installed Chrome and ChromeDriver
 cat <<EOF > "/opt/render/project/src/my_framework/.env"
 GOOGLE_CHROME_BIN="$CHROME_DIR/chrome-linux64/chrome"
 CHROMEDRIVER_PATH="$DRIVER_DIR/chromedriver"
 EOF
 
-# --- NLTK DATA DOWNLOAD ---
-echo "...Downloading NLTK 'punkt' data"
-python3.12 -m nltk.downloader punkt
-
-echo "Build script finished."
+echo "Build script finished successfully."

@@ -54,7 +54,7 @@ def scrape_article_content(url):
         logger.error(f"   - ❌ An unexpected error occurred while scraping {url}: {e}")
         return None
 
-def perform_deep_analysis(sheet, num_articles):
+def deep_style_analysis(sheet, num_articles):
     """
     Performs a deep analysis of the latest articles to extract stylistic features.
     """

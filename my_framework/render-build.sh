@@ -52,6 +52,15 @@ echo "Creating .env file with executable paths..."
 cat <<EOF > "/opt/render/project/src/my_framework/.env"
 GOOGLE_CHROME_BIN="$CHROME_DIR/chrome-linux64/chrome"
 CHROMEDRIVER_PATH="$DRIVER_DIR/chromedriver"
+CHROME_BIN="$CHROME_DIR/chrome-linux64/chrome"
 EOF
+
+# Also export these as system environment variables for the runtime
+export GOOGLE_CHROME_BIN="$CHROME_DIR/chrome-linux64/chrome"
+export CHROMEDRIVER_PATH="$DRIVER_DIR/chromedriver"
+export CHROME_BIN="$CHROME_DIR/chrome-linux64/chrome"
+
+echo "✅ Chrome binary path: $CHROME_BIN"
+echo "✅ ChromeDriver path: $CHROMEDRIVER_PATH"
 
 echo "Build script finished successfully."

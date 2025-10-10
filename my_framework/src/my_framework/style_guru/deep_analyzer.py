@@ -54,12 +54,30 @@ def scrape_article_content(url):
         logger.error(f"   - ❌ An unexpected error occurred while scraping {url}: {e}")
         return None
 
-def perform_deep_analysis(sheet, num_articles):
+def deep_style_analysis(max_articles=100):
     """
     Performs a deep analysis of the latest articles to extract stylistic features.
+    
+    Args:
+        max_articles: Maximum number of articles to analyze (default: 100)
+    
+    Returns:
+        Dictionary containing analysis results, or None if analysis fails
     """
-    logger.info("[1/3] Running deep analysis...")
-    urls = get_article_urls(sheet, num_articles)
+    logger.info(f"[1/3] Running deep analysis on up to {max_articles} articles...")
+    
+    # Get the Google Sheet connection
+    try:
+        from my_framework.style_guru.training import get_sheet
+        sheet = get_sheet()
+    except ImportError as e:
+        logger.error(f"   - ❌ Failed to import get_sheet: {e}")
+        return None
+    except Exception as e:
+        logger.error(f"   - ❌ Failed to get sheet connection: {e}")
+        return None
+    
+    urls = get_article_urls(sheet, max_articles)
     if not urls:
         logger.error("   - ❌ No URLs found to analyze.")
         return None
@@ -79,7 +97,12 @@ def perform_deep_analysis(sheet, num_articles):
     # Placeholder for actual analysis logic
     # In a real scenario, this would involve complex NLP feature extraction
     logger.info("   - Performing NLP analysis on scraped texts (placeholder)...")
-    analysis_results = {"avg_sentence_length": 18.5, "keyword_density": 0.02}
+    analysis_results = {
+        "avg_sentence_length": 18.5, 
+        "keyword_density": 0.02,
+        "articles_analyzed": len(all_texts),
+        "version": "1.0"
+    }
     
-    logger.info("[2/3] ✅ Deep analysis complete.")
+    logger.info(f"[2/3] ✅ Deep analysis complete. Analyzed {len(all_texts)} articles.")
     return analysis_results

@@ -208,16 +208,42 @@ def post_article_to_cms(article_json: str, username: str, password: str, login_u
     # --- FIX: Properly separate Render and Local setup ---
     is_render_env = os.environ.get('RENDER')
     
+    # PATCH FOR cms_poster.py
+# Replace lines 211-220 with this code:
+
     if is_render_env:
         log.info("Render environment detected - running headless")
         chrome_options.add_argument("--headless")
+        chrome_options.add_argument("--disable-gpu")
+        chrome_options.add_argument("--disable-software-rasterizer")
         
-        chrome_binary_path = os.environ.get("GOOGLE_CHROME_BIN")
-        chromedriver_path = os.environ.get("CHROMEDRIVER_PATH")
-
-        if not chrome_binary_path or not chromedriver_path:
-            log.error("❌ Chrome binary/driver path env variables not set in Render.")
-            return "Error: Chrome binary/driver path environment variables not set."
+        # Try multiple environment variable names for flexibility
+        chrome_binary_path = (
+            os.environ.get("GOOGLE_CHROME_BIN") or 
+            os.environ.get("CHROME_BIN") or
+            "/opt/render/project/.render/chrome/chrome-linux64/chrome"  # Fallback
+        )
+        chromedriver_path = (
+            os.environ.get("CHROMEDRIVER_PATH") or
+            "/opt/render/project/.render/chromedriver/chromedriver"  # Fallback
+        )
+        
+        # Debug logging
+        log.info(f"🔍 Chrome binary path: {chrome_binary_path}")
+        log.info(f"🔍 ChromeDriver path: {chromedriver_path}")
+        
+        # Check if files actually exist
+        if not os.path.exists(chrome_binary_path):
+            log.error(f"❌ Chrome binary not found at: {chrome_binary_path}")
+            return f"Error: Chrome binary not found at {chrome_binary_path}"
+        
+        if not os.path.exists(chromedriver_path):
+            log.error(f"❌ ChromeDriver not found at: {chromedriver_path}")
+            return f"Error: ChromeDriver not found at {chromedriver_path}"
+        
+        log.info("✅ Chrome and ChromeDriver paths verified")
+        chrome_options.binary_location = chrome_binary_path
+        service = Service(executable_path=chromedriver_path)
         
         chrome_options.binary_location = chrome_binary_path
         service = Service(executable_path=chromedriver_path)

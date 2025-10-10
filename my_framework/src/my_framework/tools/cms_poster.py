@@ -209,7 +209,7 @@ def post_article_to_cms(article_json: str, username: str, password: str, login_u
     is_render_env = os.environ.get('RENDER')
     
     # PATCH FOR cms_poster.py
-# Replace lines 211-220 with this code:
+    # Replace lines 211-220 with this code:
 
     if is_render_env:
         log.info("Render environment detected - running headless")
@@ -257,6 +257,11 @@ def post_article_to_cms(article_json: str, username: str, password: str, login_u
     try:
         # Login
         log.info(f"\n[1/3] Logging in to {login_url}...")
+        
+        # FIX: Add detailed logging for credentials before they are used
+        log.info(f"   - Using Username: '{username}'")
+        log.info(f"   - Using Password: '{'*' * len(password)}'")
+        
         driver.get(login_url)
         wait.until(EC.presence_of_element_located((By.ID, "edit-name"))).send_keys(username)
         driver.find_element(By.ID, "edit-pass").send_keys(password)

@@ -18,19 +18,14 @@ print("""
 ║  This will analyze 100 IntelliNews articles and create a        ║
 ║  comprehensive style framework for the AI to follow.            ║
 ║                                                                  ║
-║  ⚠️  WARNING: This may take 15-30 minutes and use ~$2-5         ║
-║      in OpenAI API credits (GPT-4 calls).                       ║
-║                                                                  ║
-║  You can run this anytime to update the framework with          ║
-║  newer articles from IntelliNews.                               ║
+║  NOTE: This may take 15-30 minutes and use ~$2-5 in OpenAI      ║
+║  API credits. This runs automatically during deployment.         ║
 ╚══════════════════════════════════════════════════════════════════╝
 """)
 
-response = input("\nDo you want to proceed? (yes/y): ").strip().lower()
-
-if response not in ['yes', 'y']:
-    print("\n❌ Setup cancelled.")
-    sys.exit(0)
+# FIX: Removed the input() prompt that caused the EOFError in non-interactive environments.
+# The script will now proceed automatically.
+print("\nProceeding with setup automatically...")
 
 # Load environment variables from .env file
 try:

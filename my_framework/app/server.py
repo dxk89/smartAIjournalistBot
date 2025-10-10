@@ -28,7 +28,6 @@ from my_framework.agents.orchestrator import OrchestratorAgent
 from my_framework.agents.loggerbot import LoggerBot, log_queue
 
 # --- Style Guru Imports ---
-# FIX: Defer the import of deep_analyzer to prevent circular dependencies
 style_guru_import_error = None
 try:
     from my_framework.style_guru.training import build_dataset, train_model
@@ -69,7 +68,10 @@ def orchestrator_workflow(config_data: dict):
         logger.info("🚀 ORCHESTRATOR WORKFLOW THREAD STARTING")
         logger.info(f"User Goal: {config_data.get('user_goal', 'N/A')}")
         logger.info(f"Source URL: {config_data.get('source_url', 'N/A')}")
-        
+        # FIX: Log the received username to verify it's coming from the UI
+        logger.info(f"CMS Username received: '{config_data.get('username', 'NOT PROVIDED')}'")
+
+
         llm = ChatOpenAI(model_name="gpt-4o", temperature=0.5, api_key=config_data.get('openai_api_key'))
         
         use_style_guru = config_data.get('use_style_guru', True)
@@ -182,13 +184,11 @@ def update_style_guru_background(num_articles: int = 100):
     style_guru_updating = True
     
     try:
-        # FIX: Import deep_analyzer here to prevent circular import on startup
         from my_framework.style_guru.deep_analyzer import deep_style_analysis
         
         logger.info(f"🎨 Starting Style Guru update with {num_articles} articles...")
         
         logger.info("[1/3] Running deep analysis...")
-        # Pass max_articles to the analysis function
         framework = deep_style_analysis(max_articles=num_articles)
         
         if not framework:

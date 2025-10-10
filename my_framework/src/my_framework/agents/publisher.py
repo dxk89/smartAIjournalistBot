@@ -32,6 +32,9 @@ class PublisherAgent(Runnable):
 
         # 1. Post to CMS
         self.logger.info("   - Posting article to CMS...")
+        # FIX: Add logging to show the credentials being used by the poster
+        self.logger.info(f"   - Attempting login with username: '{username}'")
+        
         post_result = post_article_to_cms(
             article_json=article_json,
             username=username,

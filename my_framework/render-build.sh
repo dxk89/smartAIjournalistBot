@@ -4,7 +4,6 @@ set -o errexit
 
 # --- INSTALL PYTHON DEPENDENCIES ---
 echo "Installing Python dependencies from requirements.txt..."
-# FIX: Use a relative path since the script is inside the my_framework directory
 python3.12 -m pip install -r requirements.txt
 
 # --- ENVIRONMENT AND CHROME SETUP ---

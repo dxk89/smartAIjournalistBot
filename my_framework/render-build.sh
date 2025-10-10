@@ -4,7 +4,7 @@ set -o errexit
 
 # --- INSTALL PYTHON DEPENDENCIES ---
 echo "Installing Python dependencies from requirements.txt..."
-pip install -r requirements.txt
+pip install -r my_framework/requirements.txt
 
 # --- ENVIRONMENT AND CHROME SETUP ---
 STORAGE_DIR="/opt/render/project/.render"

@@ -4,6 +4,7 @@ set -o errexit
 
 # --- INSTALL PYTHON DEPENDENCIES ---
 echo "Installing Python dependencies from requirements.txt..."
+# FIX: Use a relative path since the script is inside the my_framework directory
 python3.12 -m pip install -r requirements.txt
 
 # --- ENVIRONMENT AND CHROME SETUP ---
@@ -40,6 +41,9 @@ else
   echo "...Using cached ChromeDriver"
 fi
 
+# Change back to the my_framework directory to continue the script
+cd /opt/render/project/src/my_framework
+
 # --- STYLE GURU SETUP ---
 echo "Running Style Guru setup..."
 if [ -f "setup_style_guru.py" ]; then
@@ -60,7 +64,7 @@ CHROME_BIN=$CHROME_DIR/chrome-linux64/chrome"
 echo "$ENV_CONTENT" > ".env"
 echo "✅ Created .env in my_framework/"
 
-# Location 2: App directory  
+# Location 2: App directory
 echo "$ENV_CONTENT" > "app/.env"
 echo "✅ Created .env in my_framework/app/"
 

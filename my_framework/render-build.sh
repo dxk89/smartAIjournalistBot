@@ -4,7 +4,7 @@ set -o errexit
 
 # --- INSTALL PYTHON DEPENDENCIES ---
 echo "Installing Python dependencies from requirements.txt..."
-pip install -r my_framework/requirements.txt
+python3.12 -m pip install -r requirements.txt
 
 # --- ENVIRONMENT AND CHROME SETUP ---
 STORAGE_DIR="/opt/render/project/.render"
@@ -23,7 +23,6 @@ if [[ ! -d "$CHROME_DIR/chrome-linux64" ]]; then
 else
   echo "...Using cached Chrome"
 fi
-cd /opt/render/project/src # Go back to the original directory
 
 # --- CHROMEDRIVER INSTALLATION ---
 DRIVER_DIR="$STORAGE_DIR/chromedriver"
@@ -40,27 +39,100 @@ if [[ ! -f "$DRIVER_DIR/chromedriver" ]]; then
 else
   echo "...Using cached ChromeDriver"
 fi
-cd /opt/render/project/src # Go back to the original directory
 
 # --- STYLE GURU SETUP ---
 echo "Running Style Guru setup..."
-python setup_style_guru.py
+if [ -f "setup_style_guru.py" ]; then
+    echo "Found setup_style_guru.py, running setup..."
+    python3.12 setup_style_guru.py || echo "⚠️  Style Guru setup failed, continuing..."
+elif [ -f "../setup_style_guru.py" ]; then
+    echo "Found setup_style_guru.py in parent directory, running setup..."
+    python3.12 ../setup_style_guru.py || echo "⚠️  Style Guru setup failed, continuing..."
+else
+    echo "⚠️  setup_style_guru.py not found, skipping Style Guru setup..."
+    echo "   This is optional and won't affect the deployment."
+fi
 
-# --- CREATE .env FILE ---
-echo "Creating .env file with executable paths..."
-# This ensures the application can find the installed Chrome and ChromeDriver
-cat <<EOF > "/opt/render/project/src/my_framework/.env"
-GOOGLE_CHROME_BIN="$CHROME_DIR/chrome-linux64/chrome"
-CHROMEDRIVER_PATH="$DRIVER_DIR/chromedriver"
-CHROME_BIN="$CHROME_DIR/chrome-linux64/chrome"
-EOF
+# --- CREATE .env FILES ---
+echo "Creating .env files with executable paths..."
 
-# Also export these as system environment variables for the runtime
-export GOOGLE_CHROME_BIN="$CHROME_DIR/chrome-linux64/chrome"
-export CHROMEDRIVER_PATH="$DRIVER_DIR/chromedriver"
-export CHROME_BIN="$CHROME_DIR/chrome-linux64/chrome"
+# Create .env in multiple locations to ensure it's found
+ENV_CONTENT="GOOGLE_CHROME_BIN=$CHROME_DIR/chrome-linux64/chrome
+CHROMEDRIVER_PATH=$DRIVER_DIR/chromedriver
+CHROME_BIN=$CHROME_DIR/chrome-linux64/chrome"
 
-echo "✅ Chrome binary path: $CHROME_BIN"
-echo "✅ ChromeDriver path: $CHROMEDRIVER_PATH"
+# Location 1: Current directory (my_framework)
+echo "$ENV_CONTENT" > ".env"
+echo "✅ Created .env in my_framework/"
 
+# Location 2: App directory  
+echo "$ENV_CONTENT" > "app/.env"
+echo "✅ Created .env in my_framework/app/"
+
+# Location 3: Parent directory
+echo "$ENV_CONTENT" > "../.env"
+echo "✅ Created .env in project root/"
+
+# Verify the files were created
+echo "Verifying Chrome installation:"
+if [ -f "$CHROME_DIR/chrome-linux64/chrome" ]; then
+    echo "✅ Chrome binary exists at: $CHROME_DIR/chrome-linux64/chrome"
+else
+    echo "❌ Chrome binary NOT found at: $CHROME_DIR/chrome-linux64/chrome"
+fi
+
+if [ -f "$DRIVER_DIR/chromedriver" ]; then
+    echo "✅ ChromeDriver exists at: $DRIVER_DIR/chromedriver"
+else
+    echo "❌ ChromeDriver NOT found at: $DRIVER_DIR/chromedriver"
+fi
+
+# Final verification
+echo "=========================================="
+echo "BUILD VERIFICATION"
+echo "=========================================="
+echo "Storage directory: $STORAGE_DIR"
+echo "Chrome directory: $CHROME_DIR"
+echo "Driver directory: $DRIVER_DIR"
+echo ""
+
+if [ -d "$STORAGE_DIR" ]; then
+    echo "Contents of $STORAGE_DIR:"
+    ls -la "$STORAGE_DIR" || echo "Cannot list $STORAGE_DIR"
+    echo ""
+fi
+
+if [ -d "$CHROME_DIR" ]; then
+    echo "Contents of $CHROME_DIR:"
+    ls -la "$CHROME_DIR" || echo "Cannot list $CHROME_DIR"
+    echo ""
+fi
+
+if [ -d "$CHROME_DIR/chrome-linux64" ]; then
+    echo "Contents of $CHROME_DIR/chrome-linux64:"
+    ls -la "$CHROME_DIR/chrome-linux64" | head -20 || echo "Cannot list chrome-linux64"
+    echo ""
+fi
+
+if [ -d "$DRIVER_DIR" ]; then
+    echo "Contents of $DRIVER_DIR:"
+    ls -la "$DRIVER_DIR" || echo "Cannot list $DRIVER_DIR"
+    echo ""
+fi
+
+echo "Checking if Chrome binary is executable:"
+if [ -x "$CHROME_DIR/chrome-linux64/chrome" ]; then
+    echo "✅ Chrome binary exists and is executable"
+else
+    echo "❌ Chrome binary missing or not executable"
+fi
+
+echo "Checking if ChromeDriver is executable:"
+if [ -x "$DRIVER_DIR/chromedriver" ]; then
+    echo "✅ ChromeDriver exists and is executable"
+else
+    echo "❌ ChromeDriver missing or not executable"
+fi
+
+echo "=========================================="
 echo "Build script finished successfully."

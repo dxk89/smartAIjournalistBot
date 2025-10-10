@@ -4,7 +4,7 @@ set -o errexit
 
 # --- INSTALL PYTHON DEPENDENCIES ---
 echo "Installing Python dependencies from requirements.txt..."
-python3.12 -m pip install -r requirements.txt
+python3.12 -m pip install -r /my_framework/requirements.txt
 
 # --- ENVIRONMENT AND CHROME SETUP ---
 STORAGE_DIR="/opt/render/project/.render"
@@ -43,14 +43,9 @@ fi
 # --- STYLE GURU SETUP ---
 echo "Running Style Guru setup..."
 if [ -f "setup_style_guru.py" ]; then
-    echo "Found setup_style_guru.py, running setup..."
-    python3.12 setup_style_guru.py || echo "⚠️  Style Guru setup failed, continuing..."
-elif [ -f "../setup_style_guru.py" ]; then
-    echo "Found setup_style_guru.py in parent directory, running setup..."
-    python3.12 ../setup_style_guru.py || echo "⚠️  Style Guru setup failed, continuing..."
+    python3.12 setup_style_guru.py
 else
-    echo "⚠️  setup_style_guru.py not found, skipping Style Guru setup..."
-    echo "   This is optional and won't affect the deployment."
+    echo "⚠️  setup_style_guru.py not found, skipping..."
 fi
 
 # --- CREATE .env FILES ---

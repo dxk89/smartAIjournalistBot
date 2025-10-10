@@ -6,7 +6,8 @@ services:
     plan: free
     buildCommand: |
       pip cache purge
-      cd my_framework && bash ./render-build.sh
+      # FIX: Just execute the script directly. It will handle its own pathing.
+      bash my_framework/render-build.sh
     startCommand: |
       echo "--- Starting Gunicorn Server ---"
       cd my_framework && uvicorn app.server:app --host 0.0.0.0 --port $PORT

@@ -2,9 +2,13 @@
 # exit on any error
 set -o errexit
 
+# FIX: Change to the directory where the script is located. This makes the
+# script self-contained and ensures all relative paths work correctly.
+cd "$(dirname "$0")"
+
 # --- INSTALL PYTHON DEPENDENCIES ---
 echo "Installing Python dependencies from requirements.txt..."
-python3.12 -m pip install -r requirements.txt
+pip install -r requirements.txt
 
 # --- ENVIRONMENT AND CHROME SETUP ---
 STORAGE_DIR="/opt/render/project/.render"
@@ -20,6 +24,7 @@ if [[ ! -d "$CHROME_DIR/chrome-linux64" ]]; then
   unzip -q chrome-linux64.zip
   rm chrome-linux64.zip
   chmod +x "$CHROME_DIR/chrome-linux64/chrome"
+  cd - >/dev/null # Go back to the previous directory
 else
   echo "...Using cached Chrome"
 fi
@@ -36,16 +41,15 @@ if [[ ! -f "$DRIVER_DIR/chromedriver" ]]; then
   mv chromedriver-linux64/chromedriver .
   rm -rf chromedriver-linux64 chromedriver-linux64.zip
   chmod +x "$DRIVER_DIR/chromedriver"
+  cd - >/dev/null # Go back to the previous directory
 else
   echo "...Using cached ChromeDriver"
 fi
 
-# Change back to the my_framework directory to continue the script
-cd /opt/render/project/src/my_framework
-
 # --- STYLE GURU SETUP ---
 echo "Running Style Guru setup..."
 if [ -f "setup_style_guru.py" ]; then
+    pip install -r requirements.txt # Re-install in case Style Guru has other dependencies
     python3.12 setup_style_guru.py
 else
     echo "⚠️  setup_style_guru.py not found, skipping..."
@@ -83,53 +87,6 @@ if [ -f "$DRIVER_DIR/chromedriver" ]; then
     echo "✅ ChromeDriver exists at: $DRIVER_DIR/chromedriver"
 else
     echo "❌ ChromeDriver NOT found at: $DRIVER_DIR/chromedriver"
-fi
-
-# Final verification
-echo "=========================================="
-echo "BUILD VERIFICATION"
-echo "=========================================="
-echo "Storage directory: $STORAGE_DIR"
-echo "Chrome directory: $CHROME_DIR"
-echo "Driver directory: $DRIVER_DIR"
-echo ""
-
-if [ -d "$STORAGE_DIR" ]; then
-    echo "Contents of $STORAGE_DIR:"
-    ls -la "$STORAGE_DIR" || echo "Cannot list $STORAGE_DIR"
-    echo ""
-fi
-
-if [ -d "$CHROME_DIR" ]; then
-    echo "Contents of $CHROME_DIR:"
-    ls -la "$CHROME_DIR" || echo "Cannot list $CHROME_DIR"
-    echo ""
-fi
-
-if [ -d "$CHROME_DIR/chrome-linux64" ]; then
-    echo "Contents of $CHROME_DIR/chrome-linux64:"
-    ls -la "$CHROME_DIR/chrome-linux64" | head -20 || echo "Cannot list chrome-linux64"
-    echo ""
-fi
-
-if [ -d "$DRIVER_DIR" ]; then
-    echo "Contents of $DRIVER_DIR:"
-    ls -la "$DRIVER_DIR" || echo "Cannot list $DRIVER_DIR"
-    echo ""
-fi
-
-echo "Checking if Chrome binary is executable:"
-if [ -x "$CHROME_DIR/chrome-linux64/chrome" ]; then
-    echo "✅ Chrome binary exists and is executable"
-else
-    echo "❌ Chrome binary missing or not executable"
-fi
-
-echo "Checking if ChromeDriver is executable:"
-if [ -x "$DRIVER_DIR/chromedriver" ]; then
-    echo "✅ ChromeDriver exists and is executable"
-else
-    echo "❌ ChromeDriver missing or not executable"
 fi
 
 echo "=========================================="

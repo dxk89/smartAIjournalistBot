@@ -43,7 +43,8 @@ If the user provides a URL, the plan should look like this:
     "agent": "edit",
     "task": {
       "draft_article": "{step_2_output}",
-      "source_content": "{step_1_output}"
+      "source_content": "{step_1_output}",
+      "source_url": "{source_url}"
     }
   },
   {

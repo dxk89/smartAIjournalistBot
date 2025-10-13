@@ -214,6 +214,7 @@ class EditorReflectorAgent(Runnable):
         self.logger.info("-> Editor/Reflector Agent invoked")
         draft_article = input.get("draft_article")
         source_content = input.get("source_content")
+        source_url = input.get("source_url")
 
         if not draft_article or not source_content:
             self.logger.error("Editor requires 'draft_article' and 'source_content'.")
@@ -241,9 +242,24 @@ class EditorReflectorAgent(Runnable):
                  self.logger.error(f"   - Error in metadata generation: {parsed_data['error']}")
                  return final_json_string
 
+            # Exclude title from the body and add source URL
             paragraphs = refined_article.strip().split('\n')
-            body_html = "".join(f"<p>{p.strip()}</p>" for p in paragraphs if p.strip())
+            
+            # The title is in metadata, so the body should not contain it.
+            # Assuming refined_article contains the full text including title.
+            # Let's remove the title from the article body.
+            title = parsed_data.get('title', '')
+            article_body_text = refined_article.replace(title, '', 1).strip()
+            
+            body_paragraphs = article_body_text.strip().split('\n')
+
+            body_html = "".join(f"<p>{p.strip()}</p>" for p in body_paragraphs if p.strip())
+            
+            if source_url:
+                body_html += f"<p>Source: <a href=\"{source_url}\">{source_url}</a></p>"
+            
             parsed_data["body"] = body_html
+
 
             return json.dumps(parsed_data)
         except Exception as e:

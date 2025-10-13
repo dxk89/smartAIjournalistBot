@@ -1,4 +1,4 @@
-# File: src/my_framework/agents/orchestrator.py
+# File: my_framework/src/my_framework/agents/orchestrator.py
 
 import json
 import os
@@ -197,8 +197,14 @@ class OrchestratorAgent(Runnable):
         
         if article:
             lines = article.split('\n')
+            # Exclude title from article body
+            if len(lines) > 1:
+                article = '\n'.join(lines[1:]).strip()
+            
             cleaned_lines = [line for line in lines if not any(marker in line for marker in ['OVERALL SCORE:', 'COMPONENT SCORES:', 'STRENGTHS:', 'WEAKNESSES:', 'DETAILED FEEDBACK:', 'REVISION PRIORITIES:'])]
             article = '\n'.join(cleaned_lines).strip()
+            # Add source URL to the end
+            article += f"\n\nSource: {source_url}"
         
         self.logger.info("✅ REWRITE COMPLETE")
         

@@ -6,7 +6,7 @@ from ..core.schemas import AIMessage, HumanMessage, SystemMessage, MessageType
 from ..models.base import BaseChatModel
 from typing import List
 import os
-from pydantic import Field, BaseModel
+from pantic import Field, BaseModel
 
 # ---- JSON Helper Functions ---- #
 

@@ -99,6 +99,8 @@ class ChatOpenAI(BaseModel, BaseChatModel):
     max_tokens: int = 2000
     client: OpenAI = Field(default=None, exclude=True)
 
+    model_config = {"protected_namespaces": ()}
+
     def __init__(self, **data):
         super().__init__(**data)
         self.client = OpenAI(api_key=self.api_key or os.environ.get("OPENAI_API_KEY"))

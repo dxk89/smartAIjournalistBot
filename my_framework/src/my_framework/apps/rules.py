@@ -75,7 +75,7 @@ def analyze_articles_with_llm(text: str, api_key: str) -> dict:
         return {}
 
 
-def generate_style_sheet():
+def get_writing_style_guide():
     """
     Generate a comprehensive style guide from recent IntelliNews articles.
     Returns actual writing examples and patterns, not just statistics.

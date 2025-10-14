@@ -50,7 +50,7 @@ def llm_based_score(article_text: str, framework: Dict) -> Tuple[float, str]:
     if not api_key:
         return 0.5, "No API key available for LLM scoring"
     
-    llm = ChatOpenAI(api_key=api_key, model_name="gpt-4o", temperature=0)
+    llm = ChatOpenAI(api_key=api_key, model_name="gpt-5-nano", temperature=0)
     
     # Extract key framework elements
     core_principles = framework.get("framework", {}).get("core_principles", [])

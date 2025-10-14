@@ -1,4 +1,4 @@
-# File: my_framework/src/my_framework/models/openai.py
+# File: src/my_framework/src/my_framework/models/openai.py
 import json
 import textwrap
 from openai import OpenAI
@@ -93,13 +93,16 @@ class ChatOpenAI(BaseModel, BaseChatModel):
     """
     A lightweight wrapper around OpenAI’s chat completions API that fits into the framework.
     """
-    model_name: str = "gpt-3.5-turbo"
+    model_name: str = "gpt-5-nano"
     temperature: float = 0.5
     api_key: str | None = None
     max_tokens: int = 2000
     client: OpenAI = Field(default=None, exclude=True)
 
-    model_config = {"protected_namespaces": ()}
+    model_config = {
+        "arbitrary_types_allowed": True,
+        "protected_namespaces": ()
+    }
 
     def __init__(self, **data):
         super().__init__(**data)
@@ -126,6 +129,3 @@ class ChatOpenAI(BaseModel, BaseChatModel):
         )
         
         return AIMessage(content=response.choices[0].message.content)
-
-    class Config:
-        arbitrary_types_allowed = True

@@ -42,7 +42,7 @@ def analyze_articles_with_llm(text: str, api_key: str) -> dict:
     Perform LLM-based stylistic analysis on article text.
     This provides deeper insights beyond basic statistics.
     """
-    llm = ChatOpenAI(api_key=api_key, model_name="gpt-4o", temperature=0)
+    llm = ChatOpenAI(api_key=api_key, model_name="gpt-5-nano", temperature=0)
     
     prompt = f"""
     Analyze the following article text to create a style profile.
@@ -300,4 +300,4 @@ CRITICAL REMINDERS:
     except Exception as e:
         pass
     
-    return style_sheet
+    return style

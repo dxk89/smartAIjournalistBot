@@ -72,7 +72,7 @@ def orchestrator_workflow(config_data: dict):
         logger.info(f"CMS Username received: '{config_data.get('username', 'NOT PROVIDED')}'")
 
 
-        llm = ChatOpenAI(model_name="gpt-4o", temperature=0.5, api_key=config_data.get('openai_api_key'))
+        llm = ChatOpenAI(model_name="gpt-5-nano", temperature=0.5, api_key=config_data.get('openai_api_key'))
         
         use_style_guru = config_data.get('use_style_guru', True)
         orchestrator = OrchestratorAgent(llm=llm, use_style_guru=use_style_guru, logger=logger)
@@ -139,7 +139,7 @@ async def rewrite_article(request: dict):
     try:
         # Since rewrite_only is synchronous, we run it in a thread
         def run_rewrite():
-            llm = ChatOpenAI(model_name="gpt-4o", temperature=0.5, api_key=api_key)
+            llm = ChatOpenAI(model_name="gpt-5-nano", temperature=0.5, api_key=api_key)
             orchestrator = OrchestratorAgent(llm=llm, use_style_guru=True, logger=logger)
             return orchestrator.rewrite_only({"source_url": source_url})
 

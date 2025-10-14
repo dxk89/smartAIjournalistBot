@@ -289,11 +289,13 @@ def post_article_to_cms(article_json: str, username: str, password: str, login_u
         time.sleep(0.3)
         
         # Machine written checkbox
+        machine_written_value = article_data.get('machine_written_value', 'Yes')
+        checkbox_id_to_tick = f"edit-field-machine-written-und-{machine_written_value.lower()}"
         try:
-            driver.execute_script("document.getElementById('edit-field-machine-written-und-yes').click();")
-            log.info("   - ✅ Ticked 'Machine Written' checkbox")
+            driver.execute_script(f"document.getElementById('{checkbox_id_to_tick}').click();")
+            log.info(f"   - ✅ Ticked 'Machine Written: {machine_written_value}' checkbox")
         except JavascriptException:
-            log.warning("   - ⚠️ Could not tick 'Machine Written' checkbox")
+            log.warning(f"   - ⚠️ Could not tick 'Machine Written' checkbox with ID '{checkbox_id_to_tick}'")
         time.sleep(0.3)
         
         # Sending date

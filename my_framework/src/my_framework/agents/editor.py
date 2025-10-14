@@ -10,7 +10,7 @@ from my_framework.apps import rules
 from my_framework.parsers.standard import PydanticOutputParser
 from my_framework.apps.schemas import ArticleMetadata
 from my_framework.agents.loggerbot import LoggerBot
-from my_framework.agents.utils import COUNTRY_MAP, PUBLICATION_MAP, INDUSTRY_MAP
+from my_framework.agents.utils import COUNTRY_MAP, PUBLICATION_MAP, INDUSTRY_MAP, get_publication_prompt
 
 # --- LLM Call Functions ---
 
@@ -26,14 +26,14 @@ def _get_country_selection(llm: BaseChatModel, article_text: str, logger=None) -
     countries = [name.strip() for name in response.content.split(',') if name.strip() in country_names]
     return countries
 
-def _get_publication_selection(llm: BaseChatModel, article_text: str, logger=None) -> List[str]:
+def _get_publication_selection(llm: BaseChatModel, article_title: str, article_text: str, logger=None) -> List[str]:
     log = logger or LoggerBot.get_logger()
     publication_names = list(PUBLICATION_MAP.keys())
-    prompt = [
-        SystemMessage(content=rules.PUBLICATION_SELECTION_SYSTEM_PROMPT),
-        HumanMessage(content=f"AVAILABLE PUBLICATIONS:\n---\n{publication_names}\n---\n\nARTICLE TEXT:\n---\n{article_text[:4000]}\n---")
-    ]
-    response = llm.invoke(prompt)
+    publications_str = "\n".join([f"- {name}" for name in publication_names])
+    prompt = get_publication_prompt(article_title, article_text, publications_str)
+    
+    messages = [HumanMessage(content=prompt)]
+    response = llm.invoke(messages)
     log.debug(f"LLM raw response for publications: '{response.content}'")
     publications = [name.strip() for name in response.content.split(',') if name.strip() in publication_names]
     return publications
@@ -104,7 +104,7 @@ def _get_seo_metadata(llm: BaseChatModel, revised_article: str, logger=None) -> 
         log.info(f"   - Countries selected by LLM: {metadata['countries']}")
 
         log.info("   - Getting publication selection...")
-        metadata['publications'] = _get_publication_selection(llm, revised_article, log)
+        metadata['publications'] = _get_publication_selection(llm, metadata.get('title', ''), revised_article, log)
         log.info(f"   - Publications selected by LLM: {metadata['publications']}")
 
         log.info("   - Getting industry selection...")

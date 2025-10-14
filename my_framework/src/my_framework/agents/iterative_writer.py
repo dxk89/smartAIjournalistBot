@@ -212,7 +212,7 @@ SOURCE CONTENT:
 {source_content[:8000]}
 ---
 
-Write the complete article now. Remember: NO markdown formatting, follow IntelliNews style exactly.""")
+Write the complete article now. Remember: NO markdown formatting, follow IntelliNews style exactly, and use British English spelling.""")
         ]
         
         response = self.llm.invoke(messages)
@@ -234,6 +234,7 @@ CRITICAL RULES:
 - Follow the IntelliNews style framework exactly
 - Address every point in the feedback
 - Maintain factual accuracy to the source content
+- Use British English spelling
 - Write like a professional journalist, not an AI
 
 {rules.get_writing_style_guide()}
@@ -258,7 +259,7 @@ SOURCE CONTENT (for reference):
 {source_content[:8000]}
 ---
 
-Revise the article to address ALL the feedback points. Output ONLY the revised article.""")
+Revise the article to address ALL the feedback points. Output ONLY the revised article. Remember to use British English spelling.""")
         ]
         
         response = self.llm.invoke(messages)

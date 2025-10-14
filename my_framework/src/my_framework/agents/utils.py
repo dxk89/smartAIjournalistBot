@@ -870,6 +870,23 @@ INDUSTRY_MAP = {
     "Packaged Foods & Meats": "edit-field-industry-und-0-2769-2769-children-517-517-children-646-646",
 }
 
+# NEW: Add descriptions for NewsBase publications to guide the LLM
+NEWSBASE_PUBLICATION_DESCRIPTIONS = {
+    "AfrElec": "Africa Electric and power",
+    "AfrOil": "Africa Oil and Gas",
+    "AsiaElec": "Asia Electric and power",
+    "AsianOil": "Asia Oil and Gas",
+    "DMEA": "Downstream Middle East and Africa monitor",
+    "ENERGO": "Energy in the former Soviet Union",
+    "EurOil": "Europe Oil and Gas",
+    "FSUOGM": "Former Soviet Union oil and gas monitor",
+    "GLNG": "LNG (Liquefied Natural Gas)",
+    "LatAmOil": "Latin America Oil and Gas",
+    "MEOG": "Middle East oil and gas monitor",
+    "NorthAmOil": "North America Oil and Gas Monitor",
+    "REM": "Renewable energy monitor"
+}
+
 # NEW: Dropdown option mappings using values instead of text
 DAILY_SUBJECT_MAP = {
     "_none": "_none",
@@ -1164,14 +1181,26 @@ def tick_checkboxes_by_id(driver, id_list, log_target):
 
 def get_publication_prompt(article_title, article_body, publications):
     """Creates the prompt for selecting publications."""
+    # Add descriptions to NewsBase publications to help the LLM make a better choice
+    publications_with_desc = []
+    for pub in publications.split('\n'):
+        pub_name = pub.replace('- ', '').strip()
+        if pub_name in NEWSBASE_PUBLICATION_DESCRIPTIONS:
+            publications_with_desc.append(f"- {pub_name}: {NEWSBASE_PUBLICATION_DESCRIPTIONS[pub_name]}")
+        else:
+            publications_with_desc.append(pub)
+    
+    publications_str_enhanced = "\n".join(publications_with_desc)
+
     return f"""
     You are an expert sub-editor. Your task is to select the most relevant publications for the given article.
 
-    Here is the list of available publications:
-    {publications}
+    Here is the list of available publications with descriptions for energy-related topics:
+    {publications_str_enhanced}
 
     RULES:
     - You MUST select at least one publication.
+    - If the article is about energy, oil, or gas, you MUST select one of the specific NewsBase publications if applicable (e.g., AfrOil for African oil news).
     - Only select top-level publications (e.g., "Africa Today") if the article covers the entire region. Otherwise, select the most specific publication(s) possible.
     - Your response must be ONLY a comma-separated list of the selected publication names.
 

@@ -96,7 +96,7 @@ class ChatOpenAI(BaseModel, BaseChatModel):
     model_name: str = "gpt-5-nano"
     temperature: float = 0.5
     api_key: str | None = None
-    max_tokens: int = 2000
+    max_completion_tokens: int = 2000
     client: OpenAI = Field(default=None, exclude=True)
 
     model_config = {
@@ -125,7 +125,7 @@ class ChatOpenAI(BaseModel, BaseChatModel):
             model=self.model_name,
             messages=formatted_messages,
             temperature=self.temperature,
-            max_tokens=self.max_tokens,
+            max_tokens=self.max_completion_tokens,
         )
         
         return AIMessage(content=response.choices[0].message.content)
